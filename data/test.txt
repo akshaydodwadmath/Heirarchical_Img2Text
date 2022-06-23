@@ -1,0 +1,9 @@
+def run() {
+  repeat(0) {
+    repeat(15) {
+      repeat(0) {
+        move()
+      }
+    }
+  }
+}

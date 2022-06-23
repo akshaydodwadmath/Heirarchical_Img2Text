@@ -1,0 +1,13 @@
+def run() {
+  repeat(19) {
+    ifelse(front_is_clear()) {
+      while(left_is_clear()) {
+        pick_marker()
+      }
+    }
+    else {
+      put_marker()
+      turn_left()
+    }
+  }
+}
