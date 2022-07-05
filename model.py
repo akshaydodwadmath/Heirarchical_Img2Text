@@ -43,6 +43,144 @@ class MapModule(nn.Module):
         y = flat_y.view(y_shape)
 
         return y
+        
+        
+class MultiIOProgramDecoder(nn.Module):
+    '''
+    This LSTM based decoder offers two methods to obtain programs,
+    based on a batch of embeddings of the IO grids.
+
+    - `beam_sample` will return the `top_k` best programs, according to
+      a beam search using `beam_size` rays.
+      Outputs are under the form of tuples
+      (Variable with the log proba of the sequence, sequence (as a list) )
+    - `sample_model` will sample directly from the probability distribution
+      defined by the model.
+      Outputs are under the forms of `Rolls` objects. The expected use is to
+      assign rewards to the trajectory (using the `Rolls.assign_rewards` function)
+      and then use the `yield_*` functions to get them.
+    '''
+    def __init__(self, vocab_size, embedding_dim,
+                 io_emb_size, lstm_hidden_size, nb_layers,
+                 learn_syntax):
+        super(MultiIOProgramDecoder, self).__init__()
+
+        self.vocab_size = vocab_size
+        self.embedding_dim = embedding_dim
+
+        self.io_emb_size = io_emb_size
+        self.lstm_input_size = io_emb_size + embedding_dim
+        self.lstm_hidden_size = lstm_hidden_size
+        self.nb_layers = nb_layers
+        self.syntax_checker = None
+        self.learned_syntax_checker = None
+
+        self.embedding = nn.Embedding(
+            self.vocab_size,
+            self.embedding_dim
+        )
+        self.rnn = nn.LSTM(
+            self.lstm_input_size,
+            self.lstm_hidden_size,
+            self.nb_layers,
+        )
+
+        self.initial_h = nn.Parameter(torch.Tensor(self.nb_layers, 1, 1, self.lstm_hidden_size))
+        self.initial_c = nn.Parameter(torch.Tensor(self.nb_layers, 1, 1, self.lstm_hidden_size))
+
+        self.out2token = MapModule(nn.Linear(self.lstm_hidden_size, self.vocab_size), 1)
+        #TODO
+        if learn_syntax:
+            self.learned_syntax_checker = SyntaxLSTM(self.vocab_size, self.embedding_dim,
+                                                     self.lstm_hidden_size, self.nb_layers)
+
+        self.init_weights()
+        
+    def init_weights(self):
+        initrange = 0.1
+        self.embedding.weight.data.uniform_(-initrange, initrange)
+        self.out2token.elt_module.bias.data.fill_(0)
+        self.initial_h.data.uniform_(-initrange, initrange)
+        self.initial_c.data.uniform_(-initrange, initrange)
+        
+    
+    def forward(self, tgt_inp_sequences, io_embeddings,
+                list_inp_sequences,
+                initial_state=None,
+                grammar_state=None):
+        '''
+        tgt_inp_sequences: batch_size x seq_len(tensor length=64)
+        io_embeddings: batch_size x nb_ios x io_emb_size
+        '''
+        # unsqueeze:  dimension of size one inserted at the specified position.
+        # squeeze: dimensions of input of size 1 removed.
+        # expand: singleton dimensions expanded to a larger size.
+        # permute:  dimensions permuted.
+        # torch.cat dim: dimensions along which the tensors are concatenated
+        # TODO: understand seq_len again
+        batch_size, seq_len = tgt_inp_sequences.size()
+        _, nb_ios, _ = io_embeddings.size()
+        seq_emb = self.embedding(tgt_inp_sequences).permute(1, 0, 2).contiguous()
+        # seq_emb: seq_len x batch_size x embedding_dim
+        per_io_seq_emb = seq_emb.unsqueeze(2).expand(seq_len, batch_size, nb_ios, self.embedding_dim)
+        # per_io_seq_emb: seq_len x batch_size x nb_ios x embedding_dim
+
+        lstm_cell_size = torch.Size((self.nb_layers, batch_size, nb_ios, self.lstm_hidden_size))
+        if initial_state is None:
+            initial_state = (
+                self.initial_h.expand(lstm_cell_size).contiguous(),
+                self.initial_c.expand(lstm_cell_size).contiguous()
+            )
+        
+
+        # Add the IO embedding to each of the input
+        io_embeddings = io_embeddings.unsqueeze(0)
+        io_embeddings = io_embeddings.expand(seq_len, batch_size, nb_ios, self.io_emb_size)
+
+
+        # Forms the input correctly
+        dec_input = torch.cat([per_io_seq_emb, io_embeddings], 3)
+        # dec_input: seq_len x batch_size x nb_ios x lstm_input_size
+
+        # Flatten across batch x nb_ios
+        dec_input = dec_input.view(seq_len, batch_size*nb_ios, self.lstm_input_size)
+        # dec_input: seq_len x batch_size*nb_ios x lstm_input_size
+        initial_state = (
+            initial_state[0].view(self.nb_layers, batch_size*nb_ios, self.lstm_hidden_size),
+            initial_state[1].view(self.nb_layers, batch_size*nb_ios, self.lstm_hidden_size)
+        )
+        # initial_state: 2-Tuple of (nb_layers x batch_size*nb_ios x embedding_dim)
+
+        # Pass through the LSTM
+        dec_out, dec_lstm_state = self.rnn(dec_input.contiguous(), initial_state)
+        # dec_out: seq_len x batch_size*nb_ios x lstm_hidden_size
+        # dec_lstm_state: 2-Tuple of (nb_layers x batch_size*nb_ios x embedding_dim)
+
+        # Reshape the output:
+        dec_out = dec_out.view(1, seq_len, batch_size, nb_ios, self.lstm_hidden_size)
+        # XXX there is an extremely weird bug in pytorch when doing the max
+        # over dim = 2 so we introduce a dummy dimension to avoid it, so
+        # that we can operate on the third dimension
+        pool_out, _ = dec_out.max(3)
+        pool_out = pool_out.squeeze(3).squeeze(0)
+        # pool_out: seq_len x batch_size x lstm_hidden_size
+
+        # Flatten for decoding
+        decoder_logit = self.out2token(pool_out)
+        # decoder_logit: seq_len x batch_size x out_voc_size
+        decoder_logit = decoder_logit.permute(1, 0, 2)
+        # decoder_logit: batch_size x seq_len x out_voc_size
+
+        # Also reorganise the state
+        dec_lstm_state = (
+            dec_lstm_state[0].view(self.nb_layers, batch_size, nb_ios, self.lstm_hidden_size),
+            dec_lstm_state[1].view(self.nb_layers, batch_size, nb_ios, self.lstm_hidden_size)
+        )
+        syntax_mask = None
+        
+        #TODO if self.syntax_checker is not None:
+        
+        return decoder_logit, dec_lstm_state, grammar_state, syntax_mask
 
 class GridEncoder(nn.Module):
     def __init__(self, kernel_size, conv_stack, fc_stack):
@@ -189,18 +327,18 @@ class IOs2Seq(nn.Module):
         super(IOs2Seq, self).__init__()
         self.encoder = IOsEncoder(kernel_size, conv_stack, fc_stack)
         io_emb_size = fc_stack[-1]
-        # self.decoder = MultiIOProgramDecoder(tgt_vocabulary_size,
-                                             # tgt_embedding_dim,
-                                             # io_emb_size,
-                                             # decoder_lstm_hidden_size,
-                                             # decoder_nb_lstm_layers,
-                                             # learn_syntax)
+        self.decoder = MultiIOProgramDecoder(tgt_vocabulary_size,
+                                             tgt_embedding_dim,
+                                             io_emb_size,
+                                             decoder_lstm_hidden_size,
+                                             decoder_nb_lstm_layers,
+                                             learn_syntax)
                                              
                                              
     def forward(self, input_grids, output_grids, tgt_inp_sequences, list_inp_sequences):
 
         io_embedding = self.encoder(input_grids, output_grids)
-        # dec_outs, _, _, syntax_mask = self.decoder(tgt_inp_sequences,
-                                                   # io_embedding,
-        return  io_embedding                                          # list_inp_sequences)
-       # return dec_outs, syntax_mask
+        dec_outs, _, _, syntax_mask = self.decoder(tgt_inp_sequences,
+                                                   io_embedding,
+                                                   list_inp_sequences)
+        return dec_outs, syntax_mask

@@ -278,6 +278,7 @@ def get_minibatch(dataset, sp_idx, batch_size,
     ]
 
     in_tgt_seq = Variable(torch.LongTensor(input_lines), volatile=volatile_vars)
+    
     out_tgt_seq = Variable(torch.LongTensor(output_lines), volatile=volatile_vars)
 
     return inp_grids, out_grids, in_tgt_seq, input_lines, out_tgt_seq, \

@@ -12,8 +12,7 @@ def do_supervised_minibatch(model,
                             criterion):
 
     # Get the log probability of each token in the ground truth sequence of tokens.
-    #decoder_logit, _ = model(inp_grids, out_grids, in_tgt_seq, in_tgt_seq_list)
-    io_embedding = model(inp_grids, out_grids, in_tgt_seq, in_tgt_seq_list)
+    decoder_logit, _ = model(inp_grids, out_grids, in_tgt_seq, in_tgt_seq_list)
     
     nb_predictions = torch.numel(out_tgt_seq.data)
     # criterion is a weighted CrossEntropyLoss. The weights are used to not penalize
@@ -25,6 +24,9 @@ def do_supervised_minibatch(model,
 
     # Do the backward pass over the loss
     loss.backward()
+    
+    print('loss', loss.item())
 
     # Return the value of the loss over the minibatch for monitoring
-    return loss.data[0]
+    return loss.item()
+    #return loss.data[0]
