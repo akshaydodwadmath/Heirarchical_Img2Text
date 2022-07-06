@@ -227,6 +227,8 @@ for epoch_idx in range(0, args.nb_epochs):
     # This is definitely not the most efficient way to do it but oh well
     dataset = shuffle_dataset(dataset, batch_size)
     for sp_idx in tqdm(range(0, len(dataset["sources"]), batch_size)):
+    #for sp_idx in tqdm(range(0, 1, batch_size)):
+
 
         batch_idx = int(sp_idx/batch_size)
         optimizer.zero_grad()

@@ -96,14 +96,16 @@ class Beam(object):
                     # Avoid clearly wrong solutions
                     continue
                 beam_idx = idx
+                
                 seq = [self.out_end]
                 parent_step_idx = -1
+          
                 prev_input = self.ts_input_for_beam[parent_step_idx][beam_idx]
                 while prev_input != self.out_start:
                     seq.append(prev_input)
-                    beam_idx = self.parentBeam[parent_step_idx][int(beam_idx)]
+                    beam_idx = self.parentBeam[parent_step_idx][beam_idx]
                     parent_step_idx -= 1
-                    prev_input = self.ts_input_for_beam[parent_step_idx][int(beam_idx)]
+                    prev_input = self.ts_input_for_beam[parent_step_idx][beam_idx]
                 seq.reverse()
                 seq_rep = (beam_lp, seq)
                 
@@ -145,8 +147,9 @@ class Beam(object):
             bestScores = torch.masked_select(bestScores, to_keep)
             bestScoresId = torch.masked_select(bestScoresId, to_keep)
         # Because we flattened the beam x expandword array, we need to reidentify
-        prevBeam = bestScoresId / numExpandWords
+        prevBeam = bestScoresId // numExpandWords
         next_input = bestScoresId - prevBeam * numExpandWords
+
         self.scores = bestScores
         self.parent_beam_idxs = prevBeam
 

@@ -121,7 +121,9 @@ class MultiIOProgramDecoder(nn.Module):
         # TODO: understand seq_len again
         batch_size, seq_len = tgt_inp_sequences.size()
         _, nb_ios, _ = io_embeddings.size()
-        seq_emb = self.embedding(tgt_inp_sequences.long()).permute(1, 0, 2).contiguous()
+     #  print('tgt_inp_sequences',tgt_inp_sequences)
+     #   print('tgt_inp_sequences.long()', tgt_inp_sequences.long())
+        seq_emb = self.embedding(tgt_inp_sequences).permute(1, 0, 2).contiguous()
         # seq_emb: seq_len x batch_size x embedding_dim
         per_io_seq_emb = seq_emb.unsqueeze(2).expand(seq_len, batch_size, nb_ios, self.embedding_dim)
         # per_io_seq_emb: seq_len x batch_size x nb_ios x embedding_dim
@@ -221,6 +223,7 @@ class MultiIOProgramDecoder(nn.Module):
 
            # if batch_state is not None:
                # print('in_tgt_seq_list', (batch_state.size()))
+           # print('batch_inputs', batch_inputs)
             dec_outs, dec_state, \
             batch_grammar_state, _ = self.forward(batch_inputs,
                                                   batch_io_embeddings,

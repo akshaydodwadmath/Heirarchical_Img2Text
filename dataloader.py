@@ -277,6 +277,8 @@ def get_minibatch(dataset, sp_idx, batch_size,
         out_test_worlds.append(sample_test_out_worlds)
     inp_grids = Variable(torch.stack(inp_grids, 0), volatile=volatile_vars)
     out_grids = Variable(torch.stack(out_grids, 0), volatile=volatile_vars)
+    
+    
 
     # Prepare the target sequences
     targets = dataset["targets"][sp_idx:sp_idx+batch_size]
@@ -300,7 +302,7 @@ def get_minibatch(dataset, sp_idx, batch_size,
     ]
 
     in_tgt_seq = Variable(torch.LongTensor(input_lines), volatile=volatile_vars)
-    
+    #print('in_tgt_seq', in_tgt_seq)
     out_tgt_seq = Variable(torch.LongTensor(output_lines), volatile=volatile_vars)
 
     return inp_grids, out_grids, in_tgt_seq, input_lines, out_tgt_seq, \
