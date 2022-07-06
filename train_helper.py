@@ -15,6 +15,11 @@ def do_supervised_minibatch(model,
     decoder_logit, _ = model(inp_grids, out_grids, in_tgt_seq, in_tgt_seq_list)
     
     nb_predictions = torch.numel(out_tgt_seq.data)
+    
+    ## out_tgt_seq will be of size batch size x max seq length, non max sequences will be padded
+    ## decoder_logit will be of size (out_tgt_seq size, vocab size(52))
+    ## cross entropy loss requires unnormalized prediction scores of all tokens, output class
+
     # criterion is a weighted CrossEntropyLoss. The weights are used to not penalize
     # the padding prediction used to make the batch of the appropriate size.
     loss = criterion(

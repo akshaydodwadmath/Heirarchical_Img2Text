@@ -6,7 +6,7 @@ import os
 
 from tqdm import tqdm
 from torch.autograd import Variable
-# from karel.world import World
+from karel.world import World
 from itertools import chain
 
 
@@ -200,7 +200,29 @@ def load_input_file_orig(path_to_dataset, path_to_vocab):
         torch.save(dataset, path_to_ds_cache)
 
     return dataset, vocab    
- 
+
+#TODO: undestand this
+def shuffle_dataset(dataset, batch_size, randomize=True):
+    '''
+    We are going to group together samples that have a similar length, to speed up training
+    batch_size is passed so that we can align the groups
+    '''
+    pairs = list(zip(dataset["sources"], dataset["targets"]))
+    bucket_fun = lambda x: len(x[1]) / 5
+    pairs.sort(key=bucket_fun, reverse=True)
+    grouped_pairs = [pairs[pos: pos + batch_size]
+                     for pos in range(0,len(pairs), batch_size)]
+    if randomize:
+        to_shuffle = grouped_pairs[:-1]
+        random.shuffle(to_shuffle)
+        grouped_pairs[:-1] = to_shuffle
+    pairs = chain.from_iterable(grouped_pairs)
+    in_seqs, out_seqs = zip(*pairs)
+    return {
+        "sources": in_seqs,
+        "targets": out_seqs
+    }
+
 def get_minibatch(dataset, sp_idx, batch_size,
                   start_idx, end_idx, pad_idx,
                   nb_ios, shuffle=True, volatile_vars=False):
@@ -232,27 +254,27 @@ def get_minibatch(dataset, sp_idx, batch_size,
 
             sample_inp_grids.append(inp_grid)
             sample_out_grids.append(out_grid)
-            #TODO
-            # sample_inp_worlds.append(World.fromPytorchTensor(inp_grid))
-            # sample_out_worlds.append(World.fromPytorchTensor(out_grid))
+            #TODO: Understand World Class
+            sample_inp_worlds.append(World.fromPytorchTensor(inp_grid))
+            sample_out_worlds.append(World.fromPytorchTensor(out_grid))
         for inp_grid_desc, out_grid_desc in sample[nb_ios:]:
             # Do the inp_grid
             inp_grid = grid_desc_to_tensor(inp_grid_desc)
             # Do the out_grid
             out_grid = grid_desc_to_tensor(out_grid_desc)
-            #TODO
-            # sample_test_inp_worlds.append(World.fromPytorchTensor(inp_grid))
-            # sample_test_out_worlds.append(World.fromPytorchTensor(out_grid))
+      
+            sample_test_inp_worlds.append(World.fromPytorchTensor(inp_grid))
+            sample_test_out_worlds.append(World.fromPytorchTensor(out_grid))
 
         sample_inp_grids = torch.stack(sample_inp_grids, 0)
         sample_out_grids = torch.stack(sample_out_grids, 0)
         inp_grids.append(sample_inp_grids)
         out_grids.append(sample_out_grids)
-        #TODO
-        # inp_worlds.append(sample_inp_worlds)
-        # out_worlds.append(sample_out_worlds)
-        # inp_test_worlds.append(sample_test_inp_worlds)
-        # out_test_worlds.append(sample_test_out_worlds)
+
+        inp_worlds.append(sample_inp_worlds)
+        out_worlds.append(sample_out_worlds)
+        inp_test_worlds.append(sample_test_inp_worlds)
+        out_test_worlds.append(sample_test_out_worlds)
     inp_grids = Variable(torch.stack(inp_grids, 0), volatile=volatile_vars)
     out_grids = Variable(torch.stack(out_grids, 0), volatile=volatile_vars)
 

@@ -8,6 +8,7 @@ import torch.nn.functional as F
 
 from torch.autograd import Variable
 from dataloader import IMG_SIZE
+from misc.beam import Beam
 
 ### A module to ensure convolution happens in the correct manner and the required dimensions are obtained 
 ### after convolution. Example:
@@ -120,7 +121,7 @@ class MultiIOProgramDecoder(nn.Module):
         # TODO: understand seq_len again
         batch_size, seq_len = tgt_inp_sequences.size()
         _, nb_ios, _ = io_embeddings.size()
-        seq_emb = self.embedding(tgt_inp_sequences).permute(1, 0, 2).contiguous()
+        seq_emb = self.embedding(tgt_inp_sequences.long()).permute(1, 0, 2).contiguous()
         # seq_emb: seq_len x batch_size x embedding_dim
         per_io_seq_emb = seq_emb.unsqueeze(2).expand(seq_len, batch_size, nb_ios, self.embedding_dim)
         # per_io_seq_emb: seq_len x batch_size x nb_ios x embedding_dim
@@ -181,6 +182,133 @@ class MultiIOProgramDecoder(nn.Module):
         #TODO if self.syntax_checker is not None:
         
         return decoder_logit, dec_lstm_state, grammar_state, syntax_mask
+    
+       #TODO understand beam search, currently only used for model evaluation
+    
+    def beam_sample(self, io_embeddings,
+                    tgt_start, tgt_end, max_len,
+                    beam_size, top_k, vol):
+
+        '''
+        io_embeddings: batch_size x nb_ios x io_emb_size
+        All the rest are ints
+        vol is a boolean indicating whether created Variables should be volatile
+        '''
+        batch_size, nb_ios, io_emb_size = io_embeddings.size()
+        use_cuda = io_embeddings.is_cuda
+        tt = torch.cuda if use_cuda else torch
+        force_beamcpu = True
+
+        beams = [Beam(beam_size, top_k, tgt_start, tgt_end, use_cuda and not force_beamcpu)
+                 for _ in range(batch_size)]
+
+        lsm = nn.LogSoftmax(dim=1)
+
+        # We will make it a batch size of beam_size
+        batch_state = None  # First one is the learned default state
+        batch_grammar_state = None
+        batch_inputs = Variable(tt.LongTensor(batch_size, 1).fill_(tgt_start), volatile=vol)
+        batch_list_inputs = [[tgt_start]]*batch_size
+        batch_io_embeddings = io_embeddings
+        batch_idx = Variable(torch.arange(0, batch_size, 1).long(), volatile=vol)
+        if use_cuda:
+            batch_idx = batch_idx.cuda()
+        beams_per_sp = [1 for _ in range(batch_size)]
+
+        for stp in range(max_len):
+            # We will just do the forward of one timestep Each of the inputs
+            # for a beam appears as a different sample in the batch
+
+           # if batch_state is not None:
+               # print('in_tgt_seq_list', (batch_state.size()))
+            dec_outs, dec_state, \
+            batch_grammar_state, _ = self.forward(batch_inputs,
+                                                  batch_io_embeddings,
+                                                  batch_list_inputs,
+                                                  batch_state,
+                                                  batch_grammar_state)
+            # dec_outs -> (batch_size*beam_size, 1, nb_out_word)
+            # -> the unnormalized/pre-softmax proba for each word
+            # dec_state -> 2-tuple (nb_layers, batch_size*beam_size, nb_ios, dim)
+
+            # Get the actual word probability for each beam
+            dec_outs = dec_outs.squeeze(1)  # (batch_size*beam_size x nb_out_word)
+            lpb_out = lsm(dec_outs)  # (batch_size*beam_size x nb_out_word)
+
+            # Update all the beams, put out of the circulations the ones that
+            # have completed
+            new_inputs = []
+            new_parent_idxs = []
+            new_batch_idx = []
+            new_beams_per_sp = []
+            new_batch_checker = []
+            new_batch_list_inputs = []
+
+            sp_from_idx = 0
+            lpb_to_use = lpb_out.data
+            if force_beamcpu:
+                lpb_to_use = lpb_to_use.cpu()
+            for i, (beamState, sp_beam_size) in enumerate(zip(beams, beams_per_sp)):
+                if beamState.done:
+                    new_beams_per_sp.append(0)
+                    continue
+                sp_lpb = lpb_to_use.narrow(0, sp_from_idx, sp_beam_size)
+                is_done = beamState.advance(sp_lpb)
+                if is_done:
+                    new_beams_per_sp.append(0)
+                    sp_from_idx += sp_beam_size
+                    continue
+
+                # Get the input for the decoder at the next step
+                sp_next_inputs, sp_next_input_list = beamState.get_next_input()
+                sp_curr_beam_size = sp_next_inputs.size(0)
+                sp_batch_inputs = sp_next_inputs.view(sp_curr_beam_size, 1)
+                # Prepare so that for each beam, it's parent state is correct
+                sp_parent_idx_among_beam = beamState.get_parent_beams()
+                sp_parent_idxs = sp_parent_idx_among_beam + sp_from_idx
+                if self.syntax_checker is not None:
+                    for idx in sp_parent_idxs.data:
+                        new_batch_checker.append(copy.copy(batch_grammar_state[idx]))
+                sp_next_batch_idxs = Variable(tt.LongTensor(sp_curr_beam_size).fill_(i),
+                                              volatile=vol)
+                # Get the idxs of the batches
+                if use_cuda:
+                    sp_batch_inputs = sp_batch_inputs.cuda()
+                    sp_parent_idxs = sp_parent_idxs.cuda()
+                new_inputs.append(sp_batch_inputs)
+                new_beams_per_sp.append(sp_curr_beam_size)
+                new_batch_idx.append(sp_next_batch_idxs)
+                new_parent_idxs.append(sp_parent_idxs)
+                new_batch_list_inputs.extend([[inp] for inp in sp_next_input_list])
+                sp_from_idx += sp_beam_size
+
+            assert(sp_from_idx == lpb_to_use.size(0))  # have we gone over all the things?
+            if len(new_inputs)==0:
+                # All of our beams are done
+                break
+            batch_inputs = torch.cat(new_inputs, 0)
+            batch_idx = torch.cat(new_batch_idx, 0)
+            parent_idxs = torch.cat(new_parent_idxs, 0)
+            batch_list_inputs = new_batch_list_inputs
+
+            batch_state = (
+                dec_state[0].index_select(1, parent_idxs.type(torch.int64)),
+                dec_state[1].index_select(1, parent_idxs.type(torch.int64))
+                )
+            if self.syntax_checker is not None:
+                batch_grammar_state = new_batch_checker
+            elif self.learned_syntax_checker is not None:
+                batch_grammar_state = (
+                    batch_grammar_state[0].index_select(1, parent_idxs),
+                    batch_grammar_state[1].index_select(1, parent_idxs)
+                )
+            batch_io_embeddings = io_embeddings.index_select(0, batch_idx)
+            beams_per_sp = new_beams_per_sp
+            assert(len(beams_per_sp)==len(beams))
+        sampled = []
+        for i, beamState in enumerate(beams):
+            sampled.append(beamState.get_sampled())
+        return sampled
 
 class GridEncoder(nn.Module):
     def __init__(self, kernel_size, conv_stack, fc_stack):
@@ -342,3 +470,14 @@ class IOs2Seq(nn.Module):
                                                    io_embedding,
                                                    list_inp_sequences)
         return dec_outs, syntax_mask
+    
+    
+    def beam_sample(self, input_grids, output_grids,
+                    tgt_start, tgt_end, max_len,
+                    beam_size, top_k, vol=True):
+        io_embedding = self.encoder(input_grids, output_grids)
+
+        sampled = self.decoder.beam_sample(io_embedding,
+                                           tgt_start, tgt_end, max_len,
+                                           beam_size, top_k, vol)
+        return sampled

@@ -7,10 +7,11 @@ import time
 
 
 import argparse
-from dataloader import load_input_file,get_minibatch, load_input_file_orig
+from dataloader import load_input_file,get_minibatch, load_input_file_orig, shuffle_dataset
 from train_helper import do_supervised_minibatch
-
 from model import IOs2Seq
+from evaluate import evaluate_model
+
 import torch
 import torch.autograd as autograd
 import torch.nn as nn
@@ -223,8 +224,8 @@ best_val_acc = np.NINF
 batch_size = args.batch_size
 for epoch_idx in range(0, args.nb_epochs):
     nb_ios_for_epoch = args.nb_ios
-    # This is definitely not the most efficient way to do it but oh well TODO
-    #dataset = shuffle_dataset(dataset, batch_size)
+    # This is definitely not the most efficient way to do it but oh well
+    dataset = shuffle_dataset(dataset, batch_size)
     for sp_idx in tqdm(range(0, len(dataset["sources"]), batch_size)):
 
         batch_idx = int(sp_idx/batch_size)
@@ -288,8 +289,8 @@ for epoch_idx in range(0, args.nb_epochs):
     if (epoch_idx+1) % args.val_frequency == 0 or (epoch_idx+1) == args.nb_epochs:
         # Evaluate the model on the validation set
         out_path = str(result_dir / ("eval/epoch_%d/val_.txt" % epoch_idx))
-        val_acc = evaluate_model(str(path_to_weight_dump), vocab_file,
-                                 val_file, 5, 0, use_grammar,
+        val_acc = evaluate_model(str(path_to_weight_dump), args.vocab,
+                                 args.val_file, 5, 0, use_grammar,
                                  out_path, 100, 50, batch_size,
                                  args.use_cuda, False)
         logging.info("Epoch : %d ValidationAccuracy : %f." % (epoch_idx, val_acc))
