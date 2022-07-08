@@ -152,7 +152,7 @@ class FastEmulator(object):
                     raise FastEmuException('CRASHED')
             elif type == 'repeat':
                 times = node['times']
-                for i in xrange(times):
+                for i in range(times):
                     state.add_repeat_tick(child_location, i)
                     self.__emulate_block(node, 'body', child_location, state)
             elif type == 'while':

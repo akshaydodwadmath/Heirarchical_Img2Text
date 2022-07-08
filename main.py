@@ -52,7 +52,7 @@ def add_train_cli_args(parser):
                              help="Batch Size for the optimization. "
                              "Default: %(default)s")
     train_group.add_argument('--learning_rate', type=float,
-                             default=1e-3,
+                             default=1e-4,
                              help="Learning rate for the optimization. "
                              "Default: %(default)s")
     train_group.add_argument("--train_file", type=str,
@@ -92,6 +92,8 @@ def add_train_cli_args(parser):
                         default=100,
                         help="How many minibatch to do before logging"
                         "Default: %(default)s.")
+    train_group.add_argument("--save_to_txt", action="store_true",
+                    help="Create data files with desried programs")
 
     rl_group = parser.add_argument_group("RL-specific training options")
     # rl_group.add_argument("--environment", type=str,
@@ -156,7 +158,10 @@ if not models_dir.exists():
     time.sleep(1)  # Let some time for the dir to be created
             
 # Load-up the dataset TODO
-dataset, vocab = load_input_file_orig(args.train_file, args.vocab)
+if(args.save_to_txt):
+    dataset, vocab = load_input_file(args.train_file, args.vocab)
+else:
+    dataset, vocab = load_input_file_orig(args.train_file, args.vocab)
 
 #TODO
 if use_grammar:
@@ -166,7 +171,7 @@ vocabulary_size = len(vocab["tkn2idx"])
 
 # Create the model
 kernel_size = 3
-conv_stack = [64]
+conv_stack = [64, 64, 64]
 fc_stack = [512]
 tgt_embedding_size = 256
 lstm_hidden_size = 256

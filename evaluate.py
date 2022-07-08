@@ -10,6 +10,34 @@ from tqdm import tqdm
 from dataloader import load_input_file_orig, get_minibatch, shuffle_dataset
 from karel.consistency import Simulator
 
+
+def add_eval_args(parser):
+    parser.add_argument('--eval_nb_ios', type=int,
+                        default=5)
+    parser.add_argument('--use_grammar', action="store_true")
+    parser.add_argument("--val_nb_samples", type=int,
+                        default=0,
+                        help="How many samples to use to compute the accuracy."
+                        "Default: %(default)s, for all the dataset")
+    
+def add_beam_size_arg(parser):
+    parser.add_argument("--eval_batch_size", type=int,
+                        default=8)
+    parser.add_argument("--beam_size", type=int,
+                        default=10,
+                        help="Size of the beam search. Default %(default)s")
+    parser.add_argument("--top_k", type=int,
+                        default=5,
+                        help="How many candidates to return. Default %(default)s")
+
+def add_common_arg(parser):
+    parser.add_argument("--use_cuda", action="store_true",
+                        help="Use the GPU to run the model")
+    parser.add_argument("--log_frequency", type=int,
+                        default=100,
+                        help="How many minibatch to do before logging"
+                        "Default: %(default)s.")
+    
 def evaluate_model(model_weights,
                    vocabulary_path,
                    dataset_path,
@@ -36,6 +64,7 @@ def evaluate_model(model_weights,
         
 
         all_semantic_output_path.append(new_semantic_file_name)
+    program_dump_path = os.path.join(res_dir, "generated")
         
     # Load the vocabulary of the trained model
     dataset, vocab = load_input_file_orig(dataset_path, vocabulary_path)
@@ -86,6 +115,32 @@ def evaluate_model(model_weights,
         if use_cuda:
             inp_grids, out_grids = inp_grids.cuda(), out_grids.cuda()
             in_tgt_seq, out_tgt_seq = in_tgt_seq.cuda(), out_tgt_seq.cuda()
+         
+        #TODO: Understand code for dumping programs 
+        if dump_programs:
+            import numpy as np
+            decoder_logit, syntax_logit = model(inp_grids, out_grids, in_tgt_seq, in_tgt_seq_list)
+            if syntax_logit is not None and model.decoder.learned_syntax_checker is not None:
+                syntax_logit = syntax_logit.cpu().data.numpy()
+                for n in range(in_tgt_seq.size(0)):
+                    decoded_dump_dir = os.path.join(program_dump_path, str(n + sp_idx))
+                    if not os.path.exists(decoded_dump_dir):
+                        os.makedirs(decoded_dump_dir)
+                    seq = in_tgt_seq.cpu().data.numpy()[n].tolist()
+                    seq_len = seq.index(0) if 0 in seq else len(seq)
+                    file_name = str(n) + "_learned_syntax"
+                    norm_logit = syntax_logit[n,:seq_len]
+                    norm_logit = np.log(-norm_logit)
+                    norm_logit = 1 / (1 + np.exp(-norm_logit))
+                    np.save(os.path.join(decoded_dump_dir, file_name), norm_logit)
+                    ini_state = syntax_checker.get_initial_checker_state()
+                    file_name = str(n) + "_manual_syntax"
+                    mask = syntax_checker.get_sequence_mask(ini_state, seq).squeeze().cpu().numpy()[:seq_len]
+                    np.save(os.path.join(decoded_dump_dir, file_name), mask)
+                    file_name = str(n) + "_diff"
+                    diff = mask.astype(float) - norm_logit
+                    diff = (diff + 1) / 2 # remap to [0,1]
+                    np.save(os.path.join(decoded_dump_dir, file_name), diff)
 
         decoded = model.beam_sample(inp_grids, out_grids,
                                     tgt_start, tgt_end, max_len,
@@ -101,6 +156,18 @@ def evaluate_model(model_weights,
             total_nb += 1 #should be batch size * number of IOs
             target = target.cpu().data.squeeze().numpy().tolist()
             target = [tkn_idx for tkn_idx in target if tkn_idx != tgt_pad]
+            
+            
+            if dump_programs:
+                decoded_dump_dir = os.path.join(program_dump_path, str(batch_idx + sp_idx))
+                if not os.path.exists(decoded_dump_dir):
+                    os.makedirs(decoded_dump_dir)
+                write_program(os.path.join(decoded_dump_dir, "target"), target, vocab["idx2tkn"])
+                for rank, dec in enumerate(sp_decoded):
+                    pred = dec[1]
+                    ll = dec[0]
+                    file_name = str(rank)+ " - " + str(ll)
+                    write_program(os.path.join(decoded_dump_dir, file_name), pred, vocab["idx2tkn"])
 
 
             
@@ -131,3 +198,35 @@ def evaluate_model(model_weights,
             
     semantic_at_one = 100*nb_semantic_correct[0]/total_nb
     return semantic_at_one
+
+def write_program(path, tkn_idxs, vocab):
+    program_tkns = [vocab[tkn_idx] for tkn_idx in tkn_idxs]
+
+    indent = 0
+    is_new_line = False
+    with open(path, "w") as target_file:
+        for tkn in program_tkns:
+            if tkn in ["m(", "w(", "i(", "e(", "r("]:
+                indent += 4
+                target_file.write("\n"+" "*indent)
+                target_file.write(tkn + " ")
+                is_new_line = False
+            elif tkn in ["m)", "w)", "i)", "e)", "r)"]:
+                if is_new_line:
+                    target_file.write("\n"+" "*indent)
+                indent -= 4
+                target_file.write(tkn)
+                if indent < 0:
+                    indent = 0
+                is_new_line = True
+            elif tkn in ["REPEAT"]:
+                if is_new_line:
+                    target_file.write("\n"+" "*indent)
+                    is_new_line = False
+                target_file.write(tkn + " ")
+            else:
+                if is_new_line:
+                    target_file.write("\n"+" "*indent)
+                    is_new_line = False
+                target_file.write(tkn + " ")
+        target_file.write("\n")

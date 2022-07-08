@@ -328,7 +328,7 @@ class GridEncoder(nn.Module):
                 block = nn.Sequential(
                     ResBlock(kernel_size, conv_stack[i-1]),
                     nn.Conv2d(conv_stack[i-1], conv_stack[i],
-                              kernel_size=kernel_size, padding=(kernel_size-1)/2 ),
+                              kernel_size=kernel_size, padding=(kernel_size-1)//2 ),
                     nn.ReLU(inplace=True)
                 )
             else:
@@ -376,7 +376,7 @@ class ResBlock(nn.Module):
         super(ResBlock, self).__init__()
         self.feat_size = in_feats
         self.kernel_size = kernel_size
-        self.padding = (kernel_size - 1) / 2
+        self.padding = (kernel_size - 1) // 2
 
         self.conv1 = nn.Conv2d(self.feat_size, self.feat_size,
                                kernel_size=self.kernel_size,

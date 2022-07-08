@@ -59,7 +59,7 @@ def load_input_file(path_to_dataset, path_to_vocab):
     vocab = {"idx2tkn": tgt_idx2tkn,
              "tkn2idx": tgt_tkn2idx}
 
-    path_to_ds_cache = path_to_dataset.replace('.json', '.thdump')
+    path_to_ds_cache = path_to_dataset.replace('.json', '.txt')
     with open(path_to_ds_cache, 'r+') as f:
        f.truncate(4)
     #if os.path.exists(path_to_ds_cache):
@@ -127,6 +127,8 @@ def load_input_file(path_to_dataset, path_to_vocab):
                     f.write((' '.join(tgt_program_tkn)))
                     f.write('\n')
 
+    
+
     dataset = {"sources": srcs,
                "targets": tgts}
     torch.save(dataset, path_to_ds_cache)
@@ -170,31 +172,36 @@ def load_input_file_orig(path_to_dataset, path_to_vocab):
 
                 tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
                 current_ios = []
+                
+                rules = [(len(tgt_program_tkn) < 18), (tgt_program_tkn[3] in actions), \
+                (tgt_program_tkn[4] in actions) , (tgt_program_tkn[5] in commands), \
+                (tgt_program_tkn[-2] in actions), (tgt_program_tkn[-3] in actions)]
+                
+                if  all(rules):
+                    for example in sample_data['examples']:
+                        inp_grid_coord = []
+                        inp_grid_val = []
+                        inp_grid_str = example['inpgrid_tensor']
+                        for coord_str in inp_grid_str.split():
+                            idx, val = coord_str.split(':')
+                            inp_grid_coord.append(int(idx))
+                            assert(float(val)==1.0)
+                        inp_grid = torch.ShortTensor(inp_grid_coord)
 
-                for example in sample_data['examples']:
-                    inp_grid_coord = []
-                    inp_grid_val = []
-                    inp_grid_str = example['inpgrid_tensor']
-                    for coord_str in inp_grid_str.split():
-                        idx, val = coord_str.split(':')
-                        inp_grid_coord.append(int(idx))
-                        assert(float(val)==1.0)
-                    inp_grid = torch.ShortTensor(inp_grid_coord)
+                        out_grid_coord = []
+                        out_grid_val = []
+                        out_grid_str = example['outgrid_tensor']
+                        for coord_str in out_grid_str.split():
+                            idx, val = coord_str.split(':')
+                            out_grid_coord.append(int(idx))
+                            assert(float(val)==1.0)
+                        out_grid = torch.ShortTensor(out_grid_coord)
 
-                    out_grid_coord = []
-                    out_grid_val = []
-                    out_grid_str = example['outgrid_tensor']
-                    for coord_str in out_grid_str.split():
-                        idx, val = coord_str.split(':')
-                        out_grid_coord.append(int(idx))
-                        assert(float(val)==1.0)
-                    out_grid = torch.ShortTensor(out_grid_coord)
+                        current_ios.append((inp_grid, out_grid))
 
-                    current_ios.append((inp_grid, out_grid))
-
-                srcs.append(current_ios)
-                tgts.append(tgt_program_idces)
-
+                    srcs.append(current_ios)
+                    tgts.append(tgt_program_idces)
+                    
         dataset = {"sources": srcs,
                    "targets": tgts}
         torch.save(dataset, path_to_ds_cache)
