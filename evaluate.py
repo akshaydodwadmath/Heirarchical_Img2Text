@@ -73,7 +73,7 @@ def evaluate_model(model_weights,
     tgt_pad = vocab["tkn2idx"]["<pad>"]
 
     simulator = Simulator(vocab["idx2tkn"])
-    
+    intermediate = False
     
     # Load the model
     if not use_cuda:
@@ -108,7 +108,7 @@ def evaluate_model(model_weights,
         _, \
         inp_test_worlds, out_test_worlds = get_minibatch(dataset, sp_idx, batch_size,
                                                          tgt_start, tgt_end, tgt_pad,
-                                                         nb_ios, shuffle=False, volatile_vars=True)
+                                                         nb_ios, simulator,  intermediate, shuffle=False, volatile_vars=True)
     
         #TODO: WHY?
         max_len = out_tgt_seq.size(1) + 10

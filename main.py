@@ -11,6 +11,7 @@ from dataloader import load_input_file,get_minibatch, load_input_file_orig, shuf
 from train_helper import do_supervised_minibatch
 from model import IOs2Seq
 from evaluate import evaluate_model
+from karel.consistency import Simulator
 
 import torch
 import torch.autograd as autograd
@@ -171,19 +172,23 @@ vocabulary_size = len(vocab["tkn2idx"])
 
 # Create the model
 kernel_size = 3
-conv_stack = [64, 64, 64]
+conv_stack = [64]
 fc_stack = [512]
 tgt_embedding_size = 256
 lstm_hidden_size = 256
-nb_lstm_layers = 2
+nb_lstm_layers = 1
 learn_syntax = False
 
 #Need to setup paths
-model = IOs2Seq(kernel_size, conv_stack, fc_stack,
-                vocabulary_size, tgt_embedding_size,
-                lstm_hidden_size, nb_lstm_layers,
-                learn_syntax)
-# Dump initial weights
+if args.init_weights is None:
+    model = IOs2Seq(kernel_size, conv_stack, fc_stack,
+                    vocabulary_size, tgt_embedding_size,
+                    lstm_hidden_size, nb_lstm_layers,
+                    learn_syntax)
+else:
+    model = torch.load(args.init_weights,
+                    map_location=lambda storage, loc: storage)
+    
 path_to_ini_weight_dump = models_dir / "ini_weights.model"
 with open(str(path_to_ini_weight_dump), "wb") as weight_file:
     torch.save(model, weight_file)                
@@ -204,7 +209,8 @@ if signal == TrainSignal.SUPERVISED:
     weight_mask[tgt_pad] = 0
     # Setup the criterion
     loss_criterion = nn.CrossEntropyLoss(weight=weight_mask)
-    
+
+simulator = Simulator(vocab["idx2tkn"])
 #TODO    
 if args.use_cuda:
     model.cuda()
@@ -227,6 +233,8 @@ losses = []
 recent_losses = []
 best_val_acc = np.NINF
 batch_size = args.batch_size
+intermediate = False
+
 for epoch_idx in range(0, args.nb_epochs):
     nb_ios_for_epoch = args.nb_ios
     # This is definitely not the most efficient way to do it but oh well
@@ -243,7 +251,7 @@ for epoch_idx in range(0, args.nb_epochs):
                 in_tgt_seq, in_tgt_seq_list, out_tgt_seq, \
                 _, _, _, _, _ = get_minibatch(dataset, sp_idx, batch_size,
                                               tgt_start, tgt_end, tgt_pad,
-                                              nb_ios_for_epoch)
+                                              nb_ios_for_epoch, simulator, intermediate)
             #TODO
             if args.use_cuda:
                 inp_grids, out_grids = inp_grids.cuda(), out_grids.cuda()

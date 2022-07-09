@@ -29,6 +29,9 @@ commands = ['REPEAT',
             'ELSE',
             ]
 
+tgt_tkn2idx = {
+        '<pad>': 0,
+    }
 def grid_desc_to_tensor(grid_desc):
     grid = torch.Tensor(IMG_FEAT).fill_(0)
     grid.index_fill_(0, grid_desc.long(), 1)
@@ -44,9 +47,6 @@ def load_input_file(path_to_dataset, path_to_vocab):
     path_to_dataset: File containing the data
     path_to_vocab: File containing the vocabulary
     '''
-    tgt_tkn2idx = {
-        '<pad>': 0,
-    }
     next_id = 1
     with open(path_to_vocab, 'r') as vocab_file:
         for line in vocab_file.readlines():
@@ -60,8 +60,6 @@ def load_input_file(path_to_dataset, path_to_vocab):
              "tkn2idx": tgt_tkn2idx}
 
     path_to_ds_cache = path_to_dataset.replace('.json', '.txt')
-    with open(path_to_ds_cache, 'r+') as f:
-       f.truncate(4)
     #if os.path.exists(path_to_ds_cache):
     #    dataset = torch.load(path_to_ds_cache)
     #    print("Entered")
@@ -123,7 +121,7 @@ def load_input_file(path_to_dataset, path_to_vocab):
                 srcs.append(current_ios)
                 tgts.append(tgt_program_tkn)
                # text += tgt_program_tkn  + "\n"
-                with open(path_to_ds_cache, 'a') as f:
+                with open(path_to_ds_cache, 'w') as f:
                     f.write((' '.join(tgt_program_tkn)))
                     f.write('\n')
 
@@ -131,7 +129,7 @@ def load_input_file(path_to_dataset, path_to_vocab):
 
     dataset = {"sources": srcs,
                "targets": tgts}
-    torch.save(dataset, path_to_ds_cache)
+    #torch.save(dataset, path_to_ds_cache)
  
 
     return dataset, vocab
@@ -141,10 +139,10 @@ def load_input_file_orig(path_to_dataset, path_to_vocab):
     path_to_dataset: File containing the data
     path_to_vocab: File containing the vocabulary
     '''
-    tgt_tkn2idx = {
-        '<pad>': 0,
-    }
+
     next_id = 1
+    
+  
     with open(path_to_vocab, 'r') as vocab_file:
         for line in vocab_file.readlines():
             tgt_tkn2idx[line.strip()] = next_id
@@ -232,24 +230,34 @@ def shuffle_dataset(dataset, batch_size, randomize=True):
 
 def get_minibatch(dataset, sp_idx, batch_size,
                   start_idx, end_idx, pad_idx,
-                  nb_ios, shuffle=True, volatile_vars=False):
+                  nb_ios, simulator, intermediate, shuffle=True, volatile_vars=False):
     """Prepare minibatch."""
 
     # Prepare the grids
     grid_descriptions = dataset["sources"][sp_idx:sp_idx+batch_size]
+    
+    # Prepare the target sequences
+    targets = dataset["targets"][sp_idx:sp_idx+batch_size]   
+    
     inp_grids = []
     out_grids = []
     inp_worlds= []
     out_worlds= []
     inp_test_worlds = []
     out_test_worlds = []
-    for sample in grid_descriptions:
+    
+    for sample, sample_target in zip(grid_descriptions,targets):
         if shuffle:
             random.shuffle(sample)
         sample_inp_grids = []
         sample_out_grids = []
+        if (intermediate):
+            sample_inter_grids_1 = []
+            sample_inter_grids_2 = []
+        
         sample_inp_worlds = []
         sample_out_worlds = []
+
         sample_test_inp_worlds = []
         sample_test_out_worlds = []
         for inp_grid_desc, out_grid_desc in sample[:nb_ios]:
@@ -264,6 +272,20 @@ def get_minibatch(dataset, sp_idx, batch_size,
             #TODO: Understand World Class
             sample_inp_worlds.append(World.fromPytorchTensor(inp_grid))
             sample_out_worlds.append(World.fromPytorchTensor(out_grid))
+
+        if (intermediate):
+            subprog_1, subprog_2, subprog_3 = get_intermediate_prog(sample_target)
+            tkn_subprog_1 = translate(subprog_1, tgt_tkn2idx)
+            tkn_subprog_2 = translate(subprog_2, tgt_tkn2idx)
+            tkn_subprog_3 = translate(subprog_3, tgt_tkn2idx)
+
+            sample_inter_worlds_1, sample_inter_worlds_2 =  get_intermediate_grids(sample_inp_worlds, sample_out_worlds, tkn_subprog_1,tkn_subprog_2,tkn_subprog_3, simulator)
+            
+            
+            #for sample_world in sample_inter_worlds_1:
+                #sample_inter_grids_1.append(World.toPytorchTensor(sample_world, IMG_DIM))
+                #sample_inter_grids_2.append(World.toPytorchTensor(sample_inter_worlds_2, IMG_DIM))
+
         for inp_grid_desc, out_grid_desc in sample[nb_ios:]:
             # Do the inp_grid
             inp_grid = grid_desc_to_tensor(inp_grid_desc)
@@ -284,12 +306,7 @@ def get_minibatch(dataset, sp_idx, batch_size,
         out_test_worlds.append(sample_test_out_worlds)
     inp_grids = Variable(torch.stack(inp_grids, 0), volatile=volatile_vars)
     out_grids = Variable(torch.stack(out_grids, 0), volatile=volatile_vars)
-    
-    
-
-    # Prepare the target sequences
-    targets = dataset["targets"][sp_idx:sp_idx+batch_size]
-
+   
     lines = [
         [start_idx] + line for line in targets
     ]
@@ -311,6 +328,105 @@ def get_minibatch(dataset, sp_idx, batch_size,
     in_tgt_seq = Variable(torch.LongTensor(input_lines), volatile=volatile_vars)
     #print('in_tgt_seq', in_tgt_seq)
     out_tgt_seq = Variable(torch.LongTensor(output_lines), volatile=volatile_vars)
-
+ 
     return inp_grids, out_grids, in_tgt_seq, input_lines, out_tgt_seq, \
         inp_worlds, out_worlds, targets, inp_test_worlds, out_test_worlds
+    
+
+
+def get_intermediate_prog(line):
+    token_beg = ["DEF", "run", "m("] 
+    token_end = ["m)"]
+    subprog_1 = []
+    subprog_2 = []
+    subprog_3 = []
+    
+    subprog_1 = line[:5] + token_end 
+    subprog_2 = token_beg + line[5:-3] + token_end 
+    subprog_3 = token_beg + line[-3:]   
+
+    return subprog_1, subprog_2, subprog_3
+
+#def get_intermediate_targets(targets):
+
+    #token_beg = ["DEF", "run", "m("] 
+    #token_end = ["m)"]
+    #subprog_1 = []
+    #subprog_2 = []
+    #subprog_3 = []
+    
+    #subprog_1 = [ line[:5] + token_end for line in targets ] 
+    #subprog_2 = [ token_beg + line[5:-3] + token_end for line in targets  ]
+    #subprog_3 = [ token_beg + line[-3:] for line in targets ]
+    
+    #with open('temp.txt', 'w') as f:
+        #for line in targets:
+            #f.write((' '.join(line)))
+            #f.write('\n')
+        #f.write('\n')   
+        #for line in subprog_1:
+            #f.write((' '.join(line)))
+            #f.write('\n')   
+        #f.write('\n')  
+        #for line in subprog_2:
+            #f.write((' '.join(line)))
+            #f.write('\n')  
+        #f.write('\n')  
+        #for line in subprog_3:
+            #f.write((' '.join(line)))
+            #f.write('\n')  
+        #f.write('\n')  
+    #return subprog_1, subprog_2, subprog_3
+
+def get_intermediate_grids(inp_worlds, out_worlds, subprog_1, subprog_2, subprog_3, simulator):
+    inter_1 = []
+    inter_2 = []
+    ## Make sure that the reference program works for the IO given
+    #parse_success, ref_prog = self.simulator.get_prog_ast(subprog_1)
+    #assert(parse_success)
+    correct_reference = True
+    for inp_world, out_world in zip(inp_worlds, out_worlds):
+        
+        #Run Sub Program 1
+        parse_success, cand_prog = simulator.get_prog_ast(subprog_1)
+        if (not parse_success):
+                raise Exception("Parsing failed")
+        res_emu = simulator.run_prog(cand_prog, inp_world)
+        correct_reference = correct_reference and (res_emu.status == 'OK')
+        correct_reference = correct_reference and (not res_emu.crashed)
+        if(correct_reference):
+            temp_1 = res_emu.outgrid
+        else:
+            raise Exception("Parsing failed")
+            
+        
+        #Run Sub Program 2
+        parse_success, cand_prog = simulator.get_prog_ast(subprog_2)
+        if (not parse_success):
+                raise Exception("Parsing failed")
+        res_emu = simulator.run_prog(cand_prog, temp_1)
+        correct_reference = correct_reference and (res_emu.status == 'OK')
+        correct_reference = correct_reference and (not res_emu.crashed)
+        if(correct_reference):
+            temp_2 = res_emu.outgrid
+        else:
+             raise Exception("Parsing failed")
+        
+        
+        #Run Sub Program 3
+        parse_success, cand_prog = simulator.get_prog_ast(subprog_3)
+        if (not parse_success):
+                raise Exception("Parsing failed")
+        res_emu = simulator.run_prog(cand_prog, temp_2)
+        correct_reference = correct_reference and (res_emu.status == 'OK')
+        correct_reference = correct_reference and (not res_emu.crashed)
+        correct_reference = correct_reference and (out_world == res_emu.outgrid)
+        if(correct_reference):
+            print("Parsing SUCCESS")
+        else:
+            raise Exception("Parsing failed")
+            
+        inter_1.append(temp_1)
+        inter_2.append(temp_2)
+        
+    return inter_1,inter_2
