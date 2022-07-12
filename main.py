@@ -4,14 +4,7 @@ import logging
 import os
 import random
 import time
-
-
 import argparse
-from dataloader import load_input_file,get_minibatch, load_input_file_orig, shuffle_dataset
-from train_helper import do_supervised_minibatch
-from model import IOs2Seq
-from evaluate import evaluate_model
-from karel.consistency import Simulator
 
 import torch
 import torch.autograd as autograd
@@ -20,6 +13,15 @@ import torch.optim as optim
 import numpy as np
 from pathlib import Path
 from tqdm import tqdm
+
+from dataloader import load_input_file,get_minibatch, load_input_file_orig, shuffle_dataset
+from train_helper import do_supervised_minibatch,do_rl_minibatch
+from model import IOs2Seq
+from evaluate import evaluate_model
+from karel.consistency import Simulator
+from reinforce import EnvironmentClasses
+
+
 signals = ["supervised", "rl", "beam_rl"]
 use_grammar = False
 
@@ -61,7 +63,7 @@ def add_train_cli_args(parser):
                              help="Path to the training data. "
                              " Default: %(default)s")
     train_group.add_argument("--val_file", type=str,
-                             default="data/1m_6ex_karel/val.json",
+                             default="data/val.json",
                              help="Path to the validation data. "
                              " Default: %(default)s")
     train_group.add_argument("--vocab", type=str,
@@ -97,11 +99,11 @@ def add_train_cli_args(parser):
                     help="Create data files with desried programs")
 
     rl_group = parser.add_argument_group("RL-specific training options")
-    # rl_group.add_argument("--environment", type=str,
-                          # choices=EnvironmentClasses.keys(),
-                          # default="BlackBoxGeneralization",
-                          # help="What type of environment to get a reward from"
-                          # "Default: %(default)s.")
+    rl_group.add_argument("--environment", type=str,
+                          choices=EnvironmentClasses.keys(),
+                          default="BlackBoxGeneralization",
+                          help="What type of environment to get a reward from"
+                          "Default: %(default)s.")
     # rl_group.add_argument("--reward_comb", type=str,
                           # choices=RewardCombinationFun.keys(),
                           # default="RenormExpected",
@@ -210,6 +212,13 @@ if signal == TrainSignal.SUPERVISED:
     # Setup the criterion
     loss_criterion = nn.CrossEntropyLoss(weight=weight_mask)
 
+elif signal == TrainSignal.RL or signal == TrainSignal.BEAM_RL:
+    if signal == TrainSignal.BEAM_RL:
+        ##Just adding, not implemented
+        reward_comb_fun = RewardCombinationFun[reward_comb]
+else:
+    raise Exception("Unknown TrainingSignal.")
+
 simulator = Simulator(vocab["idx2tkn"])
 #TODO    
 if args.use_cuda:
@@ -234,7 +243,7 @@ recent_losses = []
 best_val_acc = np.NINF
 batch_size = args.batch_size
 intermediate = False
-
+env = args.environment
 for epoch_idx in range(0, args.nb_epochs):
     nb_ios_for_epoch = args.nb_ios
     # This is definitely not the most efficient way to do it but oh well
@@ -269,6 +278,52 @@ for epoch_idx in range(0, args.nb_epochs):
                                                      out_tgt_seq, loss_criterion)
             recent_losses.append(minibatch_loss)
             
+            
+            
+        elif signal == TrainSignal.RL or signal == TrainSignal.BEAM_RL:
+                inp_grids, out_grids, \
+                    _, _, _, \
+                    inp_worlds, out_worlds, \
+                    targets, \
+                    inp_test_worlds, out_test_worlds = get_minibatch(dataset, sp_idx, batch_size,
+                                                                     tgt_start, tgt_end, tgt_pad,
+                                                                     nb_ios_for_epoch, simulator, intermediate)
+                if args.use_cuda:
+                    inp_grids, out_grids = inp_grids.cuda(), out_grids.cuda()
+                
+                # We use 1/nb_rollouts as the reward to normalize wrt the
+                # size of the rollouts
+                if signal == TrainSignal.RL:
+                    reward_norm = 1 / float(args.nb_rollouts)
+                    
+                lens = [len(target) for target in targets]
+                max_len = max(lens) + 10
+                
+                
+                env_cls = EnvironmentClasses[env]
+                if "Consistency" in env:
+                    envs = [env_cls(reward_norm, trg_prog, sp_inp_worlds, sp_out_worlds, simulator)
+                            for trg_prog, sp_inp_worlds, sp_out_worlds
+                            in zip(targets, inp_worlds, out_worlds)]
+                elif "Generalization" in env:
+                    envs = [env_cls(reward_norm, trg_prog, sp_inp_test_worlds, sp_out_test_worlds, simulator )
+                            for trg_prog, sp_inp_test_worlds, sp_out_test_worlds
+                            in zip(targets, inp_test_worlds, out_test_worlds)]
+                else:
+                    raise NotImplementedError("Unknown environment type")
+                
+                if signal == TrainSignal.RL:
+                    minibatch_reward = do_rl_minibatch(model,
+                                                       inp_grids, out_grids,
+                                                       envs,
+                                                       tgt_start, tgt_end, max_len,
+                                                       args.nb_rollouts)
+                recent_losses.append(minibatch_reward)
+        
+        else:
+                raise NotImplementedError("Unknown Training method")
+                
+                
         optimizer.step()
         
         if (batch_idx % args.log_frequency == args.log_frequency-1 and len(recent_losses) > 0) or \

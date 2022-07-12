@@ -15,6 +15,8 @@ class Simulator(object):
 
     def get_prog_ast(self, prg_idxs):
         prg_tkns = self.tkn_prog_from_idx(prg_idxs)
+        ##TODEBUG
+        ##  print('prg_tkns',prg_tkns)
         try:
             prg_ast_json = self.ast_parser.parse(prg_tkns)
         except AstParseException as e:

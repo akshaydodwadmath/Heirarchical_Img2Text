@@ -8,3 +8,9 @@ python3 eval_cmd.py --model_weights exps/fake_run/Weights/best.model --vocabular
 
 python3 eval_cmd.py --model_weights exps/fake_run/Weights/best.model --vocabulary data/new_vocab.vocab --dataset data/val.json --eval_nb_ios 5 --eval_batch_size 8 
 --output_path exps/Results/TestSet_ --beam_size 64 --top_k 10 --dump_programs 
+
+RL Training:
+python3 main.py  --signal rl --learning_rate 1e-5 --init_weights exps_150epochs_sup_owndatset_smallermodel/fake_run/Weights/weights_99.model --train_file data/train.json --result_folder exps/reinforce_finetune --batch_size 16  --nb_epochs 5 --nb_rollouts 100
+
+RL Training for GPU:
+python3 main.py  --signal rl --learning_rate 1e-5 --init_weights exps_150epochs_sup_owndatset_smallermodel/fake_run/Weights/weights_99.model --train_file data/train.json --result_folder exps/reinforce_finetune --batch_size 16 --nb_rollouts 100 --nb_epochs 5 --use_cuda

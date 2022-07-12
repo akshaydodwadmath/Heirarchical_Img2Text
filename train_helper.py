@@ -34,4 +34,44 @@ def do_supervised_minibatch(model,
 
     # Return the value of the loss over the minibatch for monitoring
     return loss.item()
-    #return loss.data[0]
+    
+    
+def do_rl_minibatch(model,
+                    # Source
+                    inp_grids, out_grids,
+                    # Target
+                    envs,
+                    # Config
+                    tgt_start_idx, tgt_end_idx, max_len,
+                    nb_rollouts):
+
+    # Samples `nb_rollouts` samples from the decoding model.
+    rolls = model.sample_model(inp_grids, out_grids,
+                               tgt_start_idx, tgt_end_idx, max_len,
+                               nb_rollouts)
+    for roll, env in zip(rolls, envs):
+        # Assign the rewards for each sample
+        roll.assign_rewards(env, [])
+        #print('roll.dep_reward', roll.dep_reward)
+
+    # Evaluate the performance on the minibatch
+    batch_reward = sum(roll.dep_reward for roll in rolls)
+    # Get all variables and all gradients from all the rolls
+    variables, grad_variables = zip(*batch_rolls_reinforce(rolls))
+
+    # For each of the sampling probability, we know their gradients.
+    # See https://arxiv.org/abs/1506.05254 for what we are doing,
+    # simply using the probability of the choice made, times the reward of all successors.
+    autograd.backward(variables, grad_variables)
+
+    # Return the value of the loss/reward over the minibatch for convergence
+    # monitoring.
+    return batch_reward
+
+def batch_rolls_reinforce(rolls):
+    for roll in rolls:
+        for var, grad in roll.yield_var_and_grad():
+            if grad is None:
+                assert var.requires_grad is False
+            else:
+                yield var, grad
