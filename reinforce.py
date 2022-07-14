@@ -206,10 +206,7 @@ class MultiIOGrid(Environment):
         parse_success, cand_prog = self.simulator.get_prog_ast(trace)
         ##TODEBUG
         inter_trace_1 = trace[:5] + [21]
-        #inter_trace_1 = trace[:6]
-        #print("inter_trace_1", inter_trace_1)
         parse_success_notimp, cand_prog_inter_1  = self.simulator.get_prog_ast(inter_trace_1)
-        #print('trace', trace[:5] + [21])
         if ((not parse_success) or (not parse_success_notimp)):
             # Program is not syntactically correct
             rew = -self.reward_norm

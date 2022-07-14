@@ -304,7 +304,6 @@ for epoch_idx in range(0, args.nb_epochs):
                     
                 lens = [len(target) for target in targets]
                 max_len = max(lens) + 10
-                #max_len = 6
                 
                 env_cls = EnvironmentClasses[env]
                 if "Consistency" in env:

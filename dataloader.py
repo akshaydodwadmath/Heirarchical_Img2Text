@@ -363,37 +363,6 @@ def get_intermediate_prog(line):
 
     return subprog_1, subprog_2, subprog_3
 
-def get_intermediate_targets(targets):
-
-    token_beg = ["DEF", "run", "m("] 
-    token_end = ["m)"]
-    subprog_1 = []
-    subprog_2 = []
-    subprog_3 = []
-    
-    subprog_1 = [ line[:5] + token_end for line in targets ] 
-    subprog_2 = [ token_beg + line[5:-3] + token_end for line in targets  ]
-    subprog_3 = [ token_beg + line[-3:] for line in targets ]
-    
-    #with open('temp.txt', 'w') as f:
-        #for line in targets:
-            #f.write((' '.join(line)))
-            #f.write('\n')
-        #f.write('\n')   
-        #for line in subprog_1:
-            #f.write((' '.join(line)))
-            #f.write('\n')   
-        #f.write('\n')  
-        #for line in subprog_2:
-            #f.write((' '.join(line)))
-            #f.write('\n')  
-        #f.write('\n')  
-        #for line in subprog_3:
-            #f.write((' '.join(line)))
-            #f.write('\n')  
-        #f.write('\n')  
-    return subprog_1, subprog_2, subprog_3
-
 def get_intermediate_grids(inp_worlds, out_worlds, subprog_1, subprog_2, subprog_3, simulator):
     inter_1 = []
     inter_2 = []

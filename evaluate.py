@@ -116,7 +116,6 @@ def evaluate_model(model_weights,
     
         #TODO: WHY?
         max_len = out_tgt_seq.size(1) + 10
-        #max_len = 6
         if use_cuda:
             inp_grids, out_grids = inp_grids.cuda(), out_grids.cuda()
             in_tgt_seq, out_tgt_seq = in_tgt_seq.cuda(), out_tgt_seq.cuda()
@@ -181,10 +180,7 @@ def evaluate_model(model_weights,
             # Semantic matches
             for rank, dec in enumerate(sp_decoded):
                 pred = dec[-1]
-               # print('pred', pred)
                 inter_pred_1 = pred[:5] + [21]
-               # inter_pred_1 = pred[:6]
-               # print('inter_pred_1', inter_pred_1)
                 parse_success, cand_prog = simulator.get_prog_ast(inter_pred_1)
                 if (not parse_success):
                     continue
