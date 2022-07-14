@@ -91,6 +91,10 @@ def add_train_cli_args(parser):
                              
     train_group.add_argument("--use_cuda", action="store_true",
                         help="Use the GPU to run the model")
+    train_group.add_argument("--intermediate", action="store_true",
+                        help="Store Intermediate Grid States for RM")
+    
+    
     train_group.add_argument("--log_frequency", type=int,
                         default=100,
                         help="How many minibatch to do before logging"
@@ -174,11 +178,11 @@ vocabulary_size = len(vocab["tkn2idx"])
 
 # Create the model
 kernel_size = 3
-conv_stack = [64]
+conv_stack = [64, 64, 64]
 fc_stack = [512]
 tgt_embedding_size = 256
 lstm_hidden_size = 256
-nb_lstm_layers = 1
+nb_lstm_layers = 2
 learn_syntax = False
 
 #Need to setup paths
@@ -194,7 +198,7 @@ else:
 path_to_ini_weight_dump = models_dir / "ini_weights.model"
 with open(str(path_to_ini_weight_dump), "wb") as weight_file:
     torch.save(model, weight_file)                
-
+print("Model", model)
 
 if use_grammar:
     model.set_syntax_checker(syntax_checker)    
@@ -242,8 +246,8 @@ losses = []
 recent_losses = []
 best_val_acc = np.NINF
 batch_size = args.batch_size
-intermediate = False
 env = args.environment
+
 for epoch_idx in range(0, args.nb_epochs):
     nb_ios_for_epoch = args.nb_ios
     # This is definitely not the most efficient way to do it but oh well
@@ -260,7 +264,7 @@ for epoch_idx in range(0, args.nb_epochs):
                 in_tgt_seq, in_tgt_seq_list, out_tgt_seq, \
                 _, _, _, _, _ = get_minibatch(dataset, sp_idx, batch_size,
                                               tgt_start, tgt_end, tgt_pad,
-                                              nb_ios_for_epoch, simulator, intermediate)
+                                              nb_ios_for_epoch, simulator, args.intermediate)
             #TODO
             if args.use_cuda:
                 inp_grids, out_grids = inp_grids.cuda(), out_grids.cuda()
@@ -284,10 +288,12 @@ for epoch_idx in range(0, args.nb_epochs):
                 inp_grids, out_grids, \
                     _, _, _, \
                     inp_worlds, out_worlds, \
+                    inter_worlds_1, inter_worlds_2, \
                     targets, \
-                    inp_test_worlds, out_test_worlds = get_minibatch(dataset, sp_idx, batch_size,
+                    inp_test_worlds, out_test_worlds, \
+                    inter_test_worlds_1, inter_test_worlds_2   = get_minibatch(dataset, sp_idx, batch_size,
                                                                      tgt_start, tgt_end, tgt_pad,
-                                                                     nb_ios_for_epoch, simulator, intermediate)
+                                                                     nb_ios_for_epoch, simulator, args.intermediate)
                 if args.use_cuda:
                     inp_grids, out_grids = inp_grids.cuda(), out_grids.cuda()
                 
@@ -298,17 +304,18 @@ for epoch_idx in range(0, args.nb_epochs):
                     
                 lens = [len(target) for target in targets]
                 max_len = max(lens) + 10
-                
+                #max_len = 6
                 
                 env_cls = EnvironmentClasses[env]
                 if "Consistency" in env:
-                    envs = [env_cls(reward_norm, trg_prog, sp_inp_worlds, sp_out_worlds, simulator)
-                            for trg_prog, sp_inp_worlds, sp_out_worlds
-                            in zip(targets, inp_worlds, out_worlds)]
+                    envs = [env_cls(reward_norm, trg_prog, sp_inp_worlds, sp_out_worlds, sp_inter_worlds_1 , sp_inter_worlds_2 , simulator)
+                            for trg_prog, sp_inp_worlds, sp_out_worlds, sp_inter_worlds_1 , sp_inter_worlds_2 
+                            in zip(targets, inp_worlds, out_worlds, inter_worlds_1, inter_worlds_2)]
                 elif "Generalization" in env:
-                    envs = [env_cls(reward_norm, trg_prog, sp_inp_test_worlds, sp_out_test_worlds, simulator )
-                            for trg_prog, sp_inp_test_worlds, sp_out_test_worlds
-                            in zip(targets, inp_test_worlds, out_test_worlds)]
+
+                    envs = [env_cls(reward_norm, trg_prog, sp_inp_test_worlds, sp_out_test_worlds, sp_inter_test_worlds_1, sp_inter_test_worlds_2, simulator )
+                            for trg_prog, sp_inp_test_worlds, sp_out_test_worlds, sp_inter_test_worlds_1, sp_inter_test_worlds_2
+                            in zip(targets, inp_test_worlds, out_test_worlds, inter_test_worlds_1, inter_test_worlds_2)]
                 else:
                     raise NotImplementedError("Unknown environment type")
                 
@@ -347,8 +354,8 @@ for epoch_idx in range(0, args.nb_epochs):
         if args.use_cuda:
             model.cuda()
     previous_weight_dump = models_dir / ("weights_%d.model" % (epoch_idx-1))
-    if previous_weight_dump.exists():
-        os.remove(str(previous_weight_dump))
+    #if previous_weight_dump.exists():
+        #os.remove(str(previous_weight_dump))
     # Dump the training losses
     with open(str(train_loss_path), "w") as train_loss_file:
         json.dump(losses, train_loss_file, indent=2)
@@ -362,7 +369,7 @@ for epoch_idx in range(0, args.nb_epochs):
         val_acc = evaluate_model(str(path_to_weight_dump), args.vocab,
                                  args.val_file, 5, 0, use_grammar,
                                  out_path, 100, 50, batch_size,
-                                 args.use_cuda, False)
+                                 args.use_cuda, args.intermediate, False)
         logging.info("Epoch : %d ValidationAccuracy : %f." % (epoch_idx, val_acc))
         if val_acc > best_val_acc:
             logging.info("Epoch : %d ValidationBest : %f." % (epoch_idx, val_acc))

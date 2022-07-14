@@ -33,6 +33,8 @@ def add_beam_size_arg(parser):
 def add_common_arg(parser):
     parser.add_argument("--use_cuda", action="store_true",
                         help="Use the GPU to run the model")
+    parser.add_argument("--intermediate", action="store_true",
+                    help="Store Intermediate Grid States for RM")
     parser.add_argument("--log_frequency", type=int,
                         default=100,
                         help="How many minibatch to do before logging"
@@ -49,6 +51,7 @@ def evaluate_model(model_weights,
                    top_k,
                    batch_size,
                    use_cuda,
+                   intermediate,
                    dump_programs):
 
     all_semantic_output_path = []
@@ -73,7 +76,6 @@ def evaluate_model(model_weights,
     tgt_pad = vocab["tkn2idx"]["<pad>"]
 
     simulator = Simulator(vocab["idx2tkn"])
-    intermediate = False
     
     # Load the model
     if not use_cuda:
@@ -105,13 +107,16 @@ def evaluate_model(model_weights,
         inp_grids, out_grids, \
         in_tgt_seq, in_tgt_seq_list, out_tgt_seq, \
         inp_worlds, out_worlds, \
+        inter_worlds_1, inter_worlds_2, \
         _, \
-        inp_test_worlds, out_test_worlds = get_minibatch(dataset, sp_idx, batch_size,
+        inp_test_worlds, out_test_worlds, \
+        inter_test_worlds_1, inter_test_worlds_2    = get_minibatch(dataset, sp_idx, batch_size,
                                                          tgt_start, tgt_end, tgt_pad,
                                                          nb_ios, simulator,  intermediate, shuffle=False, volatile_vars=True)
     
         #TODO: WHY?
         max_len = out_tgt_seq.size(1) + 10
+        #max_len = 6
         if use_cuda:
             inp_grids, out_grids = inp_grids.cuda(), out_grids.cuda()
             in_tgt_seq, out_tgt_seq = in_tgt_seq.cuda(), out_tgt_seq.cuda()
@@ -148,10 +153,12 @@ def evaluate_model(model_weights,
         
         for batch_idx, (target, sp_decoded,
                         sp_input_worlds, sp_output_worlds,
+                        sp_inter_worlds_1, sp_inter_worlds_2,
                         sp_test_input_worlds, sp_test_output_worlds) in \
             enumerate(zip(out_tgt_seq.chunk(out_tgt_seq.size(0)), decoded,
                           inp_worlds, out_worlds,
-                          inp_test_worlds, out_test_worlds)):
+                          inter_worlds_1, inter_worlds_2, 
+                          inp_test_worlds, out_test_worlds,)):
 
             total_nb += 1 #should be batch size * number of IOs
             target = target.cpu().data.squeeze().numpy().tolist()
@@ -174,12 +181,15 @@ def evaluate_model(model_weights,
             # Semantic matches
             for rank, dec in enumerate(sp_decoded):
                 pred = dec[-1]
-                print('pred', pred)
-                parse_success, cand_prog = simulator.get_prog_ast(pred)
+               # print('pred', pred)
+                inter_pred_1 = pred[:5] + [21]
+               # inter_pred_1 = pred[:6]
+               # print('inter_pred_1', inter_pred_1)
+                parse_success, cand_prog = simulator.get_prog_ast(inter_pred_1)
                 if (not parse_success):
                     continue
                 semantically_correct = True
-                for (input_world, output_world) in zip(sp_input_worlds, sp_output_worlds):
+                for (input_world, output_world) in zip(sp_input_worlds, sp_inter_worlds_1):
                     res_emu = simulator.run_prog(cand_prog, input_world)
                     if (res_emu.status != 'OK') or res_emu.crashed or (res_emu.outgrid != output_world):
                         # This prediction is semantically incorrect.

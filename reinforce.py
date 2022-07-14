@@ -164,7 +164,7 @@ class MultiIOGrid(Environment):
     '''
 
     def __init__(self, reward_norm,
-                 target_program, input_worlds, output_worlds, simulator):
+                 target_program, input_worlds, output_worlds, inter_worlds_1, inter_worlds_2, simulator):
         '''
         reward_norm: float
         input_grids, output_grids: Reference IO for the synthesis
@@ -177,6 +177,8 @@ class MultiIOGrid(Environment):
         self.target_program = target_program
         self.input_worlds = input_worlds
         self.output_worlds = output_worlds
+        self.inter_worlds_1 = inter_worlds_1
+        self.inter_worlds_2 = inter_worlds_2
         self.simulator = simulator
 
         # Make sure that the reference program works for the IO given
@@ -203,24 +205,41 @@ class MultiIOGrid(Environment):
         rew = 0
         parse_success, cand_prog = self.simulator.get_prog_ast(trace)
         ##TODEBUG
-        ##   print('trace', trace)
-        if not parse_success:
+        inter_trace_1 = trace[:5] + [21]
+        #inter_trace_1 = trace[:6]
+        #print("inter_trace_1", inter_trace_1)
+        parse_success_notimp, cand_prog_inter_1  = self.simulator.get_prog_ast(inter_trace_1)
+        #print('trace', trace[:5] + [21])
+        if ((not parse_success) or (not parse_success_notimp)):
             # Program is not syntactically correct
             rew = -self.reward_norm
         else:
-            for inp_world, out_world in zip(self.input_worlds, self.output_worlds):
-                res_emu = self.simulator.run_prog(cand_prog, inp_world)
+            for inp_world, out_world, inter_worlds_1, inter_worlds_2 in zip(self.input_worlds, self.output_worlds, self.inter_worlds_1, self.inter_worlds_2):
+               # print("self.input_worlds", len(self.input_worlds))
+                res_emu = self.simulator.run_prog(cand_prog_inter_1, inp_world)
                 if res_emu.status != 'OK' or res_emu.crashed:
                     # Crashed or failed the simulator
                     # Set the reward to negative and stop looking
                     rew = -self.reward_norm
                     break
-                elif res_emu.outgrid != out_world:
+                elif res_emu.outgrid != inter_worlds_1:
                     # Generated a wrong state
                     # Set the reward to negative and stop looking
                     rew = -self.reward_norm
                     break
                 else:
+                    #res_emu = self.simulator.run_prog(cand_prog, inp_world)
+                    #if res_emu.status != 'OK' or res_emu.crashed:
+                        ## Crashed or failed the simulator
+                        ## Set the reward to negative and stop looking
+                        #rew = -self.reward_norm *0.1
+                        #break
+                    #elif res_emu.outgrid != out_world:
+                        ## Generated a wrong state
+                        ## Set the reward to negative and stop looking
+                        #rew = -self.reward_norm *0.1
+                        #break
+                    #else:
                     rew = self.reward_norm
         return rew
 
