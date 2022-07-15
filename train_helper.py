@@ -43,7 +43,7 @@ def do_rl_minibatch(model,
                     envs,
                     # Config
                     tgt_start_idx, tgt_end_idx, max_len,
-                    nb_rollouts):
+                    nb_rollouts, rm_state):
 
     # Samples `nb_rollouts` samples from the decoding model.
     rolls = model.sample_model(inp_grids, out_grids,
@@ -51,7 +51,7 @@ def do_rl_minibatch(model,
                                nb_rollouts)
     for roll, env in zip(rolls, envs):
         # Assign the rewards for each sample
-        roll.assign_rewards(env, [])
+        roll.assign_rewards(env, [], rm_state)
         #print('roll.dep_reward', roll.dep_reward)
 
     # Evaluate the performance on the minibatch

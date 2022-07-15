@@ -70,7 +70,7 @@ class Rolls(object):
                 yield var, grad
         yield self.proba, self.reinforce_gradient()
 
-    def assign_rewards(self, reward_assigner, trace):
+    def assign_rewards(self, reward_assigner, trace, rm_state):
         '''
         Using the `reward_assigner` scorer, go depth first to assign the
         reward at each timestep, and then collect back all the "depending
@@ -81,7 +81,7 @@ class Rolls(object):
             pass
         else:
             # Assign to this step its own reward
-            self.own_reward = reward_assigner.step_reward(trace,
+            self.own_reward = reward_assigner.step_reward(trace,rm_state,
                                                           self.is_final)
 
         # Assign their own score to each of the successor
@@ -90,7 +90,7 @@ class Rolls(object):
             
             ##TODEBUG
             #print('new_trace',new_trace) 
-            succ.assign_rewards(reward_assigner, new_trace)
+            succ.assign_rewards(reward_assigner, new_trace, rm_state)
 
         # If this is a final node, there is no successor, so I can already
         # compute the dep-reward.
@@ -136,20 +136,20 @@ class Environment(object):
         self.reward_norm = reward_norm
         self.environment_data = environment_data
 
-    def step_reward(self, trace, is_final):
+    def step_reward(self, trace, rm_state, is_final):
         '''
         trace: List[int] -> all prediction of the sample to score.
         is_final: bool -> Is the sample finished.
         '''
-        if self.should_skip_reward(trace, is_final):
+        if self.should_skip_reward(trace, rm_state, is_final):
             return 0
         else:
-            return self.reward_value(trace, is_final)
+            return self.reward_value(trace, rm_state, is_final)
 
-    def should_skip_reward(self, trace, is_final):
+    def should_skip_reward(self, trace, rm_state, is_final):
         raise NotImplementedError
 
-    def reward_value(self, trace, is_final):
+    def reward_value(self, trace, rm_state, is_final):
         raise NotImplementedError
 
 ##State: Input and Output input_worlds
@@ -194,32 +194,39 @@ class MultiIOGrid(Environment):
             self.correct_reference = self.correct_reference and (out_world == res_emu.outgrid)
             self.ref_actions_taken = max(self.ref_actions_taken, len(res_emu.actions))
 
-    def should_skip_reward(self, trace, is_final):
+    def should_skip_reward(self, trace, rm_state,is_final):
         return (not is_final)
 
-    def reward_value(self, trace, is_final):
+    def reward_value(self, trace, rm_state, is_final):
         if (not self.correct_reference):
             # There is some problem with the data because the reference program
             # crashed. Ignore it.
             return 0
         rew = 0
+       # print('rm_state', rm_state)
+        if(rm_state == 1):
+            trace = trace[:5] + [21]
         parse_success, cand_prog = self.simulator.get_prog_ast(trace)
         ##TODEBUG
-        inter_trace_1 = trace[:5] + [21]
-        parse_success_notimp, cand_prog_inter_1  = self.simulator.get_prog_ast(inter_trace_1)
-        if ((not parse_success) or (not parse_success_notimp)):
+        #inter_trace_1 = trace[:5] + [21]
+        #parse_success_notimp, cand_prog_inter_1  = self.simulator.get_prog_ast(inter_trace_1)
+        if ((not parse_success)):
             # Program is not syntactically correct
             rew = -self.reward_norm
         else:
             for inp_world, out_world, inter_worlds_1, inter_worlds_2 in zip(self.input_worlds, self.output_worlds, self.inter_worlds_1, self.inter_worlds_2):
                # print("self.input_worlds", len(self.input_worlds))
-                res_emu = self.simulator.run_prog(cand_prog_inter_1, inp_world)
+                if ( rm_state == 1):
+                    test_world = inter_worlds_1
+                else:
+                    test_world = out_world
+                res_emu = self.simulator.run_prog(cand_prog, inp_world)
                 if res_emu.status != 'OK' or res_emu.crashed:
                     # Crashed or failed the simulator
                     # Set the reward to negative and stop looking
                     rew = -self.reward_norm
                     break
-                elif res_emu.outgrid != inter_worlds_1:
+                elif res_emu.outgrid != test_world:
                     # Generated a wrong state
                     # Set the reward to negative and stop looking
                     rew = -self.reward_norm

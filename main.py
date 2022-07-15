@@ -319,11 +319,22 @@ for epoch_idx in range(0, args.nb_epochs):
                     raise NotImplementedError("Unknown environment type")
                 
                 if signal == TrainSignal.RL:
-                    minibatch_reward = do_rl_minibatch(model,
+                    minibatch_reward_rm1 = do_rl_minibatch(model,
                                                        inp_grids, out_grids,
                                                        envs,
-                                                       tgt_start, tgt_end, max_len,
-                                                       args.nb_rollouts)
+                                                       tgt_start, tgt_end, 6,
+                                                       args.nb_rollouts, 1)
+                    #minibatch_reward_rm2  = do_rl_minibatch(model,
+                                            #inp_grids, out_grids,
+                                            #envs,
+                                            #tgt_start, tgt_end, (max_len-3),
+                                            #args.nb_rollouts, rm_state)
+                    minibatch_reward_rm2  = do_rl_minibatch(model,
+                                            inp_grids, out_grids,
+                                            envs,
+                                            tgt_start, tgt_end, max_len,
+                                            args.nb_rollouts, 10)
+                    minibatch_reward = minibatch_reward_rm1 + minibatch_reward_rm2
                 recent_losses.append(minibatch_reward)
         
         else:
