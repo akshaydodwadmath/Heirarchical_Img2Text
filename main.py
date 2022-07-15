@@ -19,13 +19,14 @@ from train_helper import do_supervised_minibatch,do_rl_minibatch
 from model import IOs2Seq
 from evaluate import evaluate_model
 from karel.consistency import Simulator
-from reinforce import EnvironmentClasses
+from reinforce import EnvironmentClasses,RMStates
 
 
 signals = ["supervised", "rl", "beam_rl"]
 use_grammar = False
 
 
+    
 class TrainSignal(object):
     SUPERVISED = "supervised"
     RL = "rl"
@@ -206,7 +207,6 @@ if use_grammar:
 tgt_start = vocab["tkn2idx"]["<s>"]
 tgt_end = vocab["tkn2idx"]["m)"]
 tgt_pad = vocab["tkn2idx"]["<pad>"]
-
 signal = args.signal
 
 if signal == TrainSignal.SUPERVISED:
@@ -291,7 +291,8 @@ for epoch_idx in range(0, args.nb_epochs):
                     inter_worlds_1, inter_worlds_2, \
                     targets, \
                     inp_test_worlds, out_test_worlds, \
-                    inter_test_worlds_1, inter_test_worlds_2   = get_minibatch(dataset, sp_idx, batch_size,
+                    inter_test_worlds_1, inter_test_worlds_2, \
+                        target_subprog1, target_subprog2 = get_minibatch(dataset, sp_idx, batch_size,
                                                                      tgt_start, tgt_end, tgt_pad,
                                                                      nb_ios_for_epoch, simulator, args.intermediate)
                 if args.use_cuda:
@@ -302,8 +303,7 @@ for epoch_idx in range(0, args.nb_epochs):
                 if signal == TrainSignal.RL:
                     reward_norm = 1 / float(args.nb_rollouts)
                     
-                lens = [len(target) for target in targets]
-                max_len = max(lens) + 10
+           
                 
                 env_cls = EnvironmentClasses[env]
                 if "Consistency" in env:
@@ -319,22 +319,49 @@ for epoch_idx in range(0, args.nb_epochs):
                     raise NotImplementedError("Unknown environment type")
                 
                 if signal == TrainSignal.RL:
+                    
+                    lens = [len(target) for target in targets]
+                    max_len = max(lens) + 10
+                    batch_list_inputs = [[tgt_start]]*batch_size
+                    
                     minibatch_reward_rm1 = do_rl_minibatch(model,
                                                        inp_grids, out_grids,
                                                        envs,
-                                                       tgt_start, tgt_end, 6,
-                                                       args.nb_rollouts, 1)
+                                                       batch_list_inputs, tgt_end, max_len,
+                                                       args.nb_rollouts, RMStates['Full'])
+                    
+                    
+                    lens = [len(target) - len(target_subprog) for target,target_subprog in zip(targets,target_subprog1)]
+                    max_len = max(lens) + 11
+                    batch_list_inputs = target_subprog1
+                    
+                    minibatch_reward_rm2 = do_rl_minibatch(model,
+                                                       inp_grids, out_grids,
+                                                       envs,
+                                                       batch_list_inputs, tgt_end, max_len,
+                                                       args.nb_rollouts, RMStates['InterGrid1'])
+                    
+                    lens = [len(target) - len(target_subprog) for target,target_subprog in zip(targets,target_subprog2)]
+                    max_len = max(lens) + 11
+                    batch_list_inputs = target_subprog2
+                    
+                    minibatch_reward_rm3 = do_rl_minibatch(model,
+                                                       inp_grids, out_grids,
+                                                       envs,
+                                                       batch_list_inputs, tgt_end, max_len,
+                                                       args.nb_rollouts, RMStates['InterGrid2'])
+                    
+                    ##minibatch_reward_rm2  = do_rl_minibatch(model,
+                                            ##inp_grids, out_grids,
+                                            ##envs,
+                                            ##tgt_start, tgt_end, (max_len-3),
+                                            ##args.nb_rollouts, rm_state)
                     #minibatch_reward_rm2  = do_rl_minibatch(model,
                                             #inp_grids, out_grids,
                                             #envs,
-                                            #tgt_start, tgt_end, (max_len-3),
-                                            #args.nb_rollouts, rm_state)
-                    minibatch_reward_rm2  = do_rl_minibatch(model,
-                                            inp_grids, out_grids,
-                                            envs,
-                                            tgt_start, tgt_end, max_len,
-                                            args.nb_rollouts, 10)
-                    minibatch_reward = minibatch_reward_rm1 + minibatch_reward_rm2
+                                            #tgt_start, tgt_end, max_len,
+                                            #args.nb_rollouts, 10)
+                    minibatch_reward = minibatch_reward_rm1 + minibatch_reward_rm2 + minibatch_reward_rm3
                 recent_losses.append(minibatch_reward)
         
         else:

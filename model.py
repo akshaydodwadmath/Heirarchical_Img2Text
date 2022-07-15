@@ -314,7 +314,7 @@ class MultiIOProgramDecoder(nn.Module):
         return sampled
     
     def sample_model(self, io_embeddings,
-                     tgt_start, tgt_end, max_len,
+                     batch_list_inputs_passed, tgt_end, max_len,
                      nb_rollouts):
         '''
         io_embeddings: batch_size x nb_ios x io_emb_size
@@ -350,10 +350,7 @@ class MultiIOProgramDecoder(nn.Module):
 
         ## Initialising the elements for the decoder
         curr_batch_size = batch_size  # Will vary as we go along in the decoder
-
-        batch_inputs = Variable(tt.LongTensor(batch_size, 1).fill_(tgt_start) )
-
-        batch_list_inputs = [[tgt_start]]*batch_size
+    
         # batch_inputs: (curr_batch, ) -> inputs for the decoder step
         batch_state = None  # First one is the learned default state
         batch_grammar_state = None
@@ -372,6 +369,26 @@ class MultiIOProgramDecoder(nn.Module):
         roll_idx_for_batchInput = [roll_idx for roll_idx in range(curr_batch_size)]
         # roll_idx_for_batchInput: List[ idx ] -> Which roll/sample is it a trace for
         
+        for i in range(0, len(batch_list_inputs_passed[0])):
+
+            batch_list_inputs = [j[i] for j in batch_list_inputs_passed]
+            batch_inputs = Variable(tt.LongTensor(batch_list_inputs).view(-1, 1),
+                            requires_grad=False)
+            
+            
+            if( i< len(batch_list_inputs_passed[0]) - 1):
+                # Do the forward of one time step, for all our traces to expand
+                dec_outs, dec_state, \
+                _, _ = self.forward(batch_inputs,
+                                                    batch_io_embeddings,
+                                                    batch_list_inputs,
+                                                    batch_state,
+                                                    batch_grammar_state)
+            
+                ## Gather the output for the next step of the decoder
+                batch_state = dec_state
+            
+        
         #for stp in range(max_len):
         for stp in range(max_len):
             # Do the forward of one time step, for all our traces to expand
@@ -387,9 +404,10 @@ class MultiIOProgramDecoder(nn.Module):
 
             dec_outs = dec_outs.squeeze(1)  # curr_batch x nb_out_word
             dec_out_probs = sm(dec_outs)           # curr_batch x nb_out_word
+        
             
             ##TODEBUG
-            #print("dec_out_probs", dec_out_probs.data[0])
+        #    print("dec_out_probs", dec_out_probs.data[0])
 
             # Prepare the container for what will need to be given to the next
             # steps
@@ -415,7 +433,7 @@ class MultiIOProgramDecoder(nn.Module):
                 choices = torch.multinomial(dec_out_probs.data[trace_idx],
                                             multiplicity[trace_idx],
                                             True)
-                
+        
                 ##TODEBUG
                 #print("choices", choices)
                 # choices: (multiplicity, ) -> sampled output
@@ -464,8 +482,9 @@ class MultiIOProgramDecoder(nn.Module):
                
                 rolls[cur_roll_idx].expand_samples(traj, multiplicity, sp_pb)
                 
-                
+            
             to_continue_mask = [inp != tgt_end for inp in next_input]
+           
             # For the next step, drop everything that we don't need to pursue
             # because they reached the end symbol
             curr_batch_size = sum(to_continue_mask)

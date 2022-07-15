@@ -6,7 +6,11 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 
 
-
+RMStates = {
+    "Full": 0,
+    "InterGrid1": 1,
+    "InterGrid2": 2,
+}
 class Rolls(object):
 
     def __init__(self, action, proba, multiplicity, depth):
@@ -204,9 +208,14 @@ class MultiIOGrid(Environment):
             return 0
         rew = 0
        # print('rm_state', rm_state)
-        if(rm_state == 1):
-            trace = trace[:5] + [21]
+        #if(rm_state == 1):
+            #trace = trace[:5] + [21]
+       # print("rm_state",rm_state)
+       # print("trace",trace)
+        if(rm_state != RMStates['Full']):
+            trace = [3,4,20] + trace
         parse_success, cand_prog = self.simulator.get_prog_ast(trace)
+
         ##TODEBUG
         #inter_trace_1 = trace[:5] + [21]
         #parse_success_notimp, cand_prog_inter_1  = self.simulator.get_prog_ast(inter_trace_1)
@@ -216,17 +225,21 @@ class MultiIOGrid(Environment):
         else:
             for inp_world, out_world, inter_worlds_1, inter_worlds_2 in zip(self.input_worlds, self.output_worlds, self.inter_worlds_1, self.inter_worlds_2):
                # print("self.input_worlds", len(self.input_worlds))
-                if ( rm_state == 1):
+                #if ( rm_state == 1):
+                    #test_world = inter_worlds_1
+                if ( rm_state == RMStates['InterGrid1']):
                     test_world = inter_worlds_1
+                if ( rm_state == RMStates['InterGrid2']):
+                    test_world = inter_worlds_2
                 else:
-                    test_world = out_world
-                res_emu = self.simulator.run_prog(cand_prog, inp_world)
+                    test_world = inp_world
+                res_emu = self.simulator.run_prog(cand_prog, test_world)
                 if res_emu.status != 'OK' or res_emu.crashed:
                     # Crashed or failed the simulator
                     # Set the reward to negative and stop looking
                     rew = -self.reward_norm
                     break
-                elif res_emu.outgrid != test_world:
+                elif res_emu.outgrid != out_world:
                     # Generated a wrong state
                     # Set the reward to negative and stop looking
                     rew = -self.reward_norm
