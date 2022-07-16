@@ -322,7 +322,7 @@ for epoch_idx in range(0, args.nb_epochs):
                     
                     lens = [len(target) for target in targets]
                     max_len = max(lens) + 10
-                    batch_list_inputs = [[tgt_start]]*batch_size
+                    batch_list_inputs = [[tgt_start]]*len(targets)
                     
                     minibatch_reward_rm1 = do_rl_minibatch(model,
                                                        inp_grids, out_grids,

@@ -333,12 +333,15 @@ class MultiIOProgramDecoder(nn.Module):
         else:
             use_cuda = False
             tt = torch
-
+       
         # batch_size is going to be a changing thing, it correspond to how many
         # inputs we are passing through the decoder at once. Here, at
         # initialization, it is just the actual batch_size.
         batch_size, nb_ios, io_emb_size = io_embeddings.size()
-
+        
+        temp_h = (tt.FloatTensor(self.nb_layers, batch_size, nb_ios, self.lstm_hidden_size).fill_(0))
+        temp_c = (tt.FloatTensor(self.nb_layers, batch_size, nb_ios, self.lstm_hidden_size).fill_(0))
+       
         # rolls holds the sample output that we are going to collect for each
         # of the outputs
 
@@ -353,7 +356,11 @@ class MultiIOProgramDecoder(nn.Module):
     
         # batch_inputs: (curr_batch, ) -> inputs for the decoder step
         batch_state = None  # First one is the learned default state
+        final_batch_state = None
         batch_grammar_state = None
+        
+        batch_inputs = Variable(tt.LongTensor(batch_size, 1).fill_(1))
+        batch_list_inputs = [[1]]*batch_size
 
         batch_io_embeddings = io_embeddings
         # batch_io_embeddings: curr_batch x nb_ios x io_emb_size
@@ -368,26 +375,63 @@ class MultiIOProgramDecoder(nn.Module):
         # multiplicity: List[ int ] -> How many of this trace have we sampled
         roll_idx_for_batchInput = [roll_idx for roll_idx in range(curr_batch_size)]
         # roll_idx_for_batchInput: List[ idx ] -> Which roll/sample is it a trace for
-        
-        for i in range(0, len(batch_list_inputs_passed[0])):
+        parent =  [idx for idx in range(curr_batch_size)]
+        prev_parent = [idx for idx in range(curr_batch_size)]
+        prev_parent = Variable(tt.LongTensor(prev_parent), requires_grad=False)
 
-            batch_list_inputs = [j[i] for j in batch_list_inputs_passed]
-            batch_inputs = Variable(tt.LongTensor(batch_list_inputs).view(-1, 1),
+        for i in range(1, (max(map(len,batch_list_inputs_passed)))):
+            
+            # Do the forward of one time step, for all our traces to expand
+            dec_outs, dec_state, \
+            _, _ = self.forward(batch_inputs,
+                                                batch_io_embeddings,
+                                                batch_list_inputs,
+                                                batch_state,
+                                                batch_grammar_state)
+            
+       
+            
+            to_continue_mask = [i < (len(j)-1) for j in batch_list_inputs_passed]
+            
+            curr_batch_size = sum(to_continue_mask)
+            
+            next_batch_inputs = [inp[i] for inp in batch_list_inputs_passed if i < (len(inp)-1)]
+            
+            
+            
+            batch_inputs = Variable(tt.LongTensor(next_batch_inputs).view(-1, 1),
+                                    requires_grad=False)
+            
+            batch_list_inputs = [[inp] for inp in next_batch_inputs]
+
+            ## Which are the parents that we need to get the state for
+            ## (potentially multiple times the same parent)
+            parents_to_continue = [parent_idx for (parent_idx, to_cont)
+                                   in zip(parent, to_continue_mask) if to_cont]
+            parent = Variable(tt.LongTensor(parents_to_continue), requires_grad=False)
+            
+            ## Gather the output for the next step of the decoder
+            
+            batch_state = (
+                dec_state[0].index_select(1, parent),
+                dec_state[1].index_select(1, parent)
+            )
+    
+            final_batch_state = (
+                temp_h.index_copy_(1, prev_parent, dec_state[0]),
+                temp_c.index_copy_(1, prev_parent, dec_state[1])   
+            )
+                
+            prev_parent = parent
+            batch_io_embeddings = batch_io_embeddings.index_select(0, parent)
+            
+        #Prepare for model learning
+        batch_io_embeddings = io_embeddings     
+        batch_list_inputs = [inp[-1] for inp in batch_list_inputs_passed]
+        batch_inputs = Variable(tt.LongTensor(batch_list_inputs).view(-1, 1),
                             requires_grad=False)
-            
-            
-            if( i< len(batch_list_inputs_passed[0]) - 1):
-                # Do the forward of one time step, for all our traces to expand
-                dec_outs, dec_state, \
-                _, _ = self.forward(batch_inputs,
-                                                    batch_io_embeddings,
-                                                    batch_list_inputs,
-                                                    batch_state,
-                                                    batch_grammar_state)
-            
-                ## Gather the output for the next step of the decoder
-                batch_state = dec_state
-            
+        curr_batch_size = batch_size
+        batch_state = final_batch_state
         
         #for stp in range(max_len):
         for stp in range(max_len):
