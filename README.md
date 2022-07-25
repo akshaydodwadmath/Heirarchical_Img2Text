@@ -27,3 +27,5 @@ python3 main.py  --signal rl --learning_rate 1e-5 --init_weights exps_150epochs_
 python3 eval_cmd.py --model_weights exps/fake_run/Weights/best.model --vocabulary data/new_vocab.vocab --dataset data/test.json --eval_nb_ios 5 --eval_batch_size 8 
 --output_path exps/fake_run/Results/TestSet_ --beam_size 64 --top_k 10 --intermediate
 
+RM from scratch:
+ python3 main.py  --signal rl --learning_rate 1e-5 --train_file data/train.json --result_folder exps_RMfromscratch/reinforce/ --batch_size 16 --nb_rollouts 500 --nb_epochs 5  --use_cuda --intermediate
