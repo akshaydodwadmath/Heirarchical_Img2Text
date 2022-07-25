@@ -110,12 +110,14 @@ def evaluate_model(model_weights,
         inter_worlds_1, inter_worlds_2, \
         _, \
         inp_test_worlds, out_test_worlds, \
-        inter_test_worlds_1, inter_test_worlds_2    = get_minibatch(dataset, sp_idx, batch_size,
+        inter_test_worlds_1, inter_test_worlds_2, \
+            target_subprog1, target_subprog2 = get_minibatch(dataset, sp_idx, batch_size,
                                                          tgt_start, tgt_end, tgt_pad,
                                                          nb_ios, simulator,  intermediate, shuffle=False, volatile_vars=True)
     
         #TODO: WHY?
         max_len = out_tgt_seq.size(1) + 10
+       # max_len = 6
         if use_cuda:
             inp_grids, out_grids = inp_grids.cuda(), out_grids.cuda()
             in_tgt_seq, out_tgt_seq = in_tgt_seq.cuda(), out_tgt_seq.cuda()
@@ -180,7 +182,6 @@ def evaluate_model(model_weights,
             # Semantic matches
             for rank, dec in enumerate(sp_decoded):
                 pred = dec[-1]
-               # inter_pred_1 = pred[:5] + [21]
                 parse_success, cand_prog = simulator.get_prog_ast(pred)
                 if (not parse_success):
                     continue

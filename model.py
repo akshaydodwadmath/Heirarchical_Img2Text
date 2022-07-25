@@ -313,7 +313,7 @@ class MultiIOProgramDecoder(nn.Module):
         return sampled
     
     def sample_model(self, io_embeddings,
-                     tgt_start, tgt_end, max_len,
+                     batch_list_inputs_passed, tgt_end, max_len,
                      nb_rollouts):
         '''
         io_embeddings: batch_size x nb_ios x io_emb_size
@@ -332,12 +332,15 @@ class MultiIOProgramDecoder(nn.Module):
         else:
             use_cuda = False
             tt = torch
-
+       
         # batch_size is going to be a changing thing, it correspond to how many
         # inputs we are passing through the decoder at once. Here, at
         # initialization, it is just the actual batch_size.
         batch_size, nb_ios, io_emb_size = io_embeddings.size()
-
+        
+        temp_h = (tt.FloatTensor(self.nb_layers, batch_size, nb_ios, self.lstm_hidden_size).fill_(0))
+        temp_c = (tt.FloatTensor(self.nb_layers, batch_size, nb_ios, self.lstm_hidden_size).fill_(0))
+       
         # rolls holds the sample output that we are going to collect for each
         # of the outputs
 
@@ -349,13 +352,14 @@ class MultiIOProgramDecoder(nn.Module):
 
         ## Initialising the elements for the decoder
         curr_batch_size = batch_size  # Will vary as we go along in the decoder
-
-        batch_inputs = Variable(tt.LongTensor(batch_size, 1).fill_(tgt_start) )
-
-        batch_list_inputs = [[tgt_start]]*batch_size
+    
         # batch_inputs: (curr_batch, ) -> inputs for the decoder step
         batch_state = None  # First one is the learned default state
+        final_batch_state = None
         batch_grammar_state = None
+        
+        batch_inputs = Variable(tt.LongTensor(batch_size, 1).fill_(1))
+        batch_list_inputs = [[1]]*batch_size
 
         batch_io_embeddings = io_embeddings
         # batch_io_embeddings: curr_batch x nb_ios x io_emb_size
@@ -370,6 +374,63 @@ class MultiIOProgramDecoder(nn.Module):
         # multiplicity: List[ int ] -> How many of this trace have we sampled
         roll_idx_for_batchInput = [roll_idx for roll_idx in range(curr_batch_size)]
         # roll_idx_for_batchInput: List[ idx ] -> Which roll/sample is it a trace for
+        parent =  [idx for idx in range(curr_batch_size)]
+        prev_parent = [idx for idx in range(curr_batch_size)]
+        prev_parent = Variable(tt.LongTensor(prev_parent), requires_grad=False)
+
+        for i in range(1, (max(map(len,batch_list_inputs_passed)))):
+            
+            # Do the forward of one time step, for all our traces to expand
+            dec_outs, dec_state, \
+            _, _ = self.forward(batch_inputs,
+                                                batch_io_embeddings,
+                                                batch_list_inputs,
+                                                batch_state,
+                                                batch_grammar_state)
+            
+       
+            
+            to_continue_mask = [i < (len(j)-1) for j in batch_list_inputs_passed]
+            
+            curr_batch_size = sum(to_continue_mask)
+            
+            next_batch_inputs = [inp[i] for inp in batch_list_inputs_passed if i < (len(inp)-1)]
+            
+            
+            
+            batch_inputs = Variable(tt.LongTensor(next_batch_inputs).view(-1, 1),
+                                    requires_grad=False)
+            
+            batch_list_inputs = [[inp] for inp in next_batch_inputs]
+
+            ## Which are the parents that we need to get the state for
+            ## (potentially multiple times the same parent)
+            parents_to_continue = [parent_idx for (parent_idx, to_cont)
+                                   in zip(parent, to_continue_mask) if to_cont]
+            parent = Variable(tt.LongTensor(parents_to_continue), requires_grad=False)
+            
+            ## Gather the output for the next step of the decoder
+            
+            batch_state = (
+                dec_state[0].index_select(1, parent),
+                dec_state[1].index_select(1, parent)
+            )
+    
+            final_batch_state = (
+                temp_h.index_copy_(1, prev_parent, dec_state[0]),
+                temp_c.index_copy_(1, prev_parent, dec_state[1])   
+            )
+                
+            prev_parent = parent
+            batch_io_embeddings = batch_io_embeddings.index_select(0, parent)
+            
+        #Prepare for model learning
+        batch_io_embeddings = io_embeddings     
+        batch_list_inputs = [inp[-1] for inp in batch_list_inputs_passed]
+        batch_inputs = Variable(tt.LongTensor(batch_list_inputs).view(-1, 1),
+                            requires_grad=False)
+        curr_batch_size = batch_size
+        batch_state = final_batch_state
         
         #for stp in range(max_len):
         for stp in range(max_len):
@@ -386,9 +447,10 @@ class MultiIOProgramDecoder(nn.Module):
 
             dec_outs = dec_outs.squeeze(1)  # curr_batch x nb_out_word
             dec_out_probs = sm(dec_outs)           # curr_batch x nb_out_word
+        
             
             ##TODEBUG
-            #print("dec_out_probs", dec_out_probs.data[0])
+        #    print("dec_out_probs", dec_out_probs.data[0])
 
             # Prepare the container for what will need to be given to the next
             # steps
@@ -414,7 +476,7 @@ class MultiIOProgramDecoder(nn.Module):
                 choices = torch.multinomial(dec_out_probs.data[trace_idx],
                                             multiplicity[trace_idx],
                                             True)
-                
+        
                 ##TODEBUG
                 #print("choices", choices)
                 # choices: (multiplicity, ) -> sampled output
@@ -463,8 +525,9 @@ class MultiIOProgramDecoder(nn.Module):
                
                 rolls[cur_roll_idx].expand_samples(traj, multiplicity, sp_pb)
                 
-                
+            
             to_continue_mask = [inp != tgt_end for inp in next_input]
+           
             # For the next step, drop everything that we don't need to pursue
             # because they reached the end symbol
             curr_batch_size = sum(to_continue_mask)
