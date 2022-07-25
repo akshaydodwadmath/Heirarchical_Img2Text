@@ -196,8 +196,35 @@ class MultiIOGrid(Environment):
 
     def should_skip_reward(self, trace, is_final):
         return (not is_final)
-
+    
     def reward_value(self, trace, is_final):
+        if (not self.correct_reference):
+            # There is some problem with the data because the reference program
+            # crashed. Ignore it.
+            return 0
+        rew = 0
+        parse_success, cand_prog = self.simulator.get_prog_ast(trace)
+        if not parse_success:
+            # Program is not syntactically correct
+            rew = -self.reward_norm
+        else:
+            for inp_world, out_world in zip(self.input_worlds, self.output_worlds):
+                res_emu = self.simulator.run_prog(cand_prog, inp_world)
+                if res_emu.status != 'OK' or res_emu.crashed:
+                    # Crashed or failed the simulator
+                    # Set the reward to negative and stop looking
+                    rew = -self.reward_norm
+                    break
+                elif res_emu.outgrid != out_world:
+                    # Generated a wrong state
+                    # Set the reward to negative and stop looking
+                    rew = -self.reward_norm
+                    break
+                else:
+                    rew = self.reward_norm
+        return rew
+    
+    def reward_value_rm(self, trace, is_final):
         if (not self.correct_reference):
             # There is some problem with the data because the reference program
             # crashed. Ignore it.
@@ -206,9 +233,14 @@ class MultiIOGrid(Environment):
         parse_success, cand_prog = self.simulator.get_prog_ast(trace)
         ##TODEBUG
         inter_trace_1 = trace[:5] + [21]
+        inter_trace_2 = trace[:-3] + [21]
+        inter_trace_3 = trace
+        
+        
         parse_success_notimp, cand_prog_inter_1  = self.simulator.get_prog_ast(inter_trace_1)
         if ((not parse_success) or (not parse_success_notimp)):
             # Program is not syntactically correct
+           # rew = self.reward_norm* 0.8
             rew = -self.reward_norm
         else:
             for inp_world, out_world, inter_worlds_1, inter_worlds_2 in zip(self.input_worlds, self.output_worlds, self.inter_worlds_1, self.inter_worlds_2):
@@ -217,12 +249,13 @@ class MultiIOGrid(Environment):
                 if res_emu.status != 'OK' or res_emu.crashed:
                     # Crashed or failed the simulator
                     # Set the reward to negative and stop looking
+                    # rew = self.reward_norm* 0.8
                     rew = -self.reward_norm
                     break
                 elif res_emu.outgrid != inter_worlds_1:
                     # Generated a wrong state
                     # Set the reward to negative and stop looking
-                    rew = -self.reward_norm
+                    rew = self.reward_norm* 0.8 * 0.1
                     break
                 else:
                     #res_emu = self.simulator.run_prog(cand_prog, inp_world)
@@ -237,11 +270,110 @@ class MultiIOGrid(Environment):
                         #rew = -self.reward_norm *0.1
                         #break
                     #else:
-                    rew = self.reward_norm
+                    rew = 0
+                    
+                    
+                    parse_success_notimp, cand_prog_inter_2  = self.simulator.get_prog_ast(inter_trace_2)
+                    if ((not parse_success) or (not parse_success_notimp)):
+                        # Program is not syntactically correct
+                        rew =  -self.reward_norm
+                    else:
+                        for inp_world, out_world, inter_worlds_1, inter_worlds_2 in zip(self.input_worlds, self.output_worlds, self.inter_worlds_1, self.inter_worlds_2):
+                        # print("self.input_worlds", len(self.input_worlds))
+                            res_emu = self.simulator.run_prog(cand_prog_inter_2, inp_world)
+                            if res_emu.status != 'OK' or res_emu.crashed:
+                                # Crashed or failed the simulator
+                                # Set the reward to negative and stop looking
+                                rew =   -self.reward_norm
+                                break
+                            elif res_emu.outgrid != inter_worlds_2:
+                                # Generated a wrong state
+                                # Set the reward to negative and stop looking
+                                rew =  self.reward_norm* 0.9 * 0.1
+                                break
+                            else:
+                                #res_emu = self.simulator.run_prog(cand_prog, inp_world)
+                                #if res_emu.status != 'OK' or res_emu.crashed:
+                                    ## Crashed or failed the simulator
+                                    ## Set the reward to negative and stop looking
+                                    #rew = -self.reward_norm *0.1
+                                    #break
+                                #elif res_emu.outgrid != out_world:
+                                    ## Generated a wrong state
+                                    ## Set the reward to negative and stop looking
+                                    #rew = -self.reward_norm *0.1
+                                    #break
+                                #else:
+                                rew = 0
+                    
+                    
+                                parse_success_notimp, cand_prog_inter_3  = self.simulator.get_prog_ast(inter_trace_3)
+                                if ((not parse_success) or (not parse_success_notimp)):
+                                    # Program is not syntactically correct
+                                    rew = -self.reward_norm
+                                else:
+                                    for inp_world, out_world, inter_worlds_1, inter_worlds_2 in zip(self.input_worlds, self.output_worlds, self.inter_worlds_1, self.inter_worlds_2):
+                                    # print("self.input_worlds", len(self.input_worlds))
+                                        res_emu = self.simulator.run_prog(cand_prog_inter_3, inp_world)
+                                        if res_emu.status != 'OK' or res_emu.crashed:
+                                            # Crashed or failed the simulator
+                                            # Set the reward to negative and stop looking
+                                            rew =  -self.reward_norm
+                                            break
+                                        elif res_emu.outgrid != out_world:
+                                            # Generated a wrong state
+                                            # Set the reward to negative and stop looking
+                                            rew =  self.reward_norm* 1.0 * 0.1
+                                            break
+                                        else:
+                                            #res_emu = self.simulator.run_prog(cand_prog, inp_world)
+                                            #if res_emu.status != 'OK' or res_emu.crashed:
+                                                ## Crashed or failed the simulator
+                                                ## Set the reward to negative and stop looking
+                                                #rew = -self.reward_norm *0.1
+                                                #break
+                                            #elif res_emu.outgrid != out_world:
+                                                ## Generated a wrong state
+                                                ## Set the reward to negative and stop looking
+                                                #rew = -self.reward_norm *0.1
+                                                #break
+                                            #else:
+                                            rew =  self.reward_norm
         return rew
+    
+def expected_rew_renorm(prediction_lpbs, prediction_reward_list):
+    '''
+    Simplest Reward Combination Function
+
+    Takes as input:
+    `prediction_lpbs`: The log probabilities of each sampled programs
+    `prediction_reward_list`: The reward associated with each of these
+                              sampled programs.
+
+    Returns the expected reward under the (renormalized so that it sums to 1)
+    probability distribution defined by prediction_lbps.
+    '''
+    # # Method 1:
+    # pbs = prediction_lpbs.exp()
+    # pb_sum = pbs.sum()
+    # pbs = pbs.div(pb_sum.expand_as(pbs))
+
+    # Method 2:
+    prediction_pbs = F.softmax(prediction_lpbs, dim=0)
+
+    if prediction_pbs.is_cuda:
+        prediction_reward = torch.cuda.FloatTensor(prediction_reward_list)
+    else:
+        prediction_reward = torch.FloatTensor(prediction_reward_list)
+    prediction_reward = Variable(prediction_reward, requires_grad=False)
+
+    return torch.dot(prediction_pbs, prediction_reward)
 
 EnvironmentClasses = {
     "BlackBoxGeneralization": MultiIOGrid,
     "BlackBoxConsistency": MultiIOGrid,
 }
  
+RewardCombinationFun = {
+    "RenormExpected": expected_rew_renorm
+}

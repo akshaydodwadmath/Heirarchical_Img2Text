@@ -27,3 +27,5 @@ python3 main.py  --signal rl --learning_rate 1e-5 --init_weights exps_150epochs_
 python3 eval_cmd.py --model_weights exps/fake_run/Weights/best.model --vocabulary data/new_vocab.vocab --dataset data/test.json --eval_nb_ios 5 --eval_batch_size 8 
 --output_path exps/fake_run/Results/TestSet_ --beam_size 64 --top_k 10 --intermediate
 
+RL Beam RL Training:
+python3 main.py  --signal beam_rl --learning_rate 1e-5 --init_weights exps_150epochs_sup_owndatset_smallermodel/fake_run/Weights/weights_99.model --train_file data/train.json --result_folder exps/reinforcebeamRL_finetune --batch_size 16  --nb_epochs 5  --intermediate --rl_inner_batch 8 --rl_use_ref --rl_beam 64 --use_cuda

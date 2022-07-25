@@ -180,12 +180,12 @@ def evaluate_model(model_weights,
             # Semantic matches
             for rank, dec in enumerate(sp_decoded):
                 pred = dec[-1]
-                inter_pred_1 = pred[:5] + [21]
-                parse_success, cand_prog = simulator.get_prog_ast(inter_pred_1)
+               # inter_pred_1 = pred[:5] + [21]
+                parse_success, cand_prog = simulator.get_prog_ast(pred)
                 if (not parse_success):
                     continue
                 semantically_correct = True
-                for (input_world, output_world) in zip(sp_input_worlds, sp_inter_worlds_1):
+                for (input_world, output_world) in zip(sp_input_worlds, sp_output_worlds):
                     res_emu = simulator.run_prog(cand_prog, input_world)
                     if (res_emu.status != 'OK') or res_emu.crashed or (res_emu.outgrid != output_world):
                         # This prediction is semantically incorrect.

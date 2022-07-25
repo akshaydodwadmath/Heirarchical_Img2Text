@@ -15,11 +15,11 @@ from pathlib import Path
 from tqdm import tqdm
 
 from dataloader import load_input_file,get_minibatch, load_input_file_orig, shuffle_dataset
-from train_helper import do_supervised_minibatch,do_rl_minibatch
+from train_helper import do_supervised_minibatch,do_rl_minibatch, do_beam_rl
 from model import IOs2Seq
 from evaluate import evaluate_model
 from karel.consistency import Simulator
-from reinforce import EnvironmentClasses
+from reinforce import EnvironmentClasses, RewardCombinationFun
 
 
 signals = ["supervised", "rl", "beam_rl"]
@@ -108,10 +108,10 @@ def add_train_cli_args(parser):
                           default="BlackBoxGeneralization",
                           help="What type of environment to get a reward from"
                           "Default: %(default)s.")
-    # rl_group.add_argument("--reward_comb", type=str,
-                          # choices=RewardCombinationFun.keys(),
-                          # default="RenormExpected",
-                          # help="How to aggregate the reward over several samples.")
+    rl_group.add_argument("--reward_comb", type=str,
+                          choices=RewardCombinationFun.keys(),
+                          default="RenormExpected",
+                          help="How to aggregate the reward over several samples.")
     rl_group.add_argument('--nb_rollouts', type=int,
                           default=100,
                           help="When using RL,"
@@ -218,8 +218,7 @@ if signal == TrainSignal.SUPERVISED:
 
 elif signal == TrainSignal.RL or signal == TrainSignal.BEAM_RL:
     if signal == TrainSignal.BEAM_RL:
-        ##Just adding, not implemented
-        reward_comb_fun = RewardCombinationFun[reward_comb]
+        reward_comb_fun = RewardCombinationFun[args.reward_comb]
 else:
     raise Exception("Unknown TrainingSignal.")
 
@@ -301,6 +300,8 @@ for epoch_idx in range(0, args.nb_epochs):
                 # size of the rollouts
                 if signal == TrainSignal.RL:
                     reward_norm = 1 / float(args.nb_rollouts)
+                elif signal == TrainSignal.BEAM_RL:
+                    reward_norm = 1
                     
                 lens = [len(target) for target in targets]
                 max_len = max(lens) + 10
@@ -324,6 +325,14 @@ for epoch_idx in range(0, args.nb_epochs):
                                                        envs,
                                                        tgt_start, tgt_end, max_len,
                                                        args.nb_rollouts)
+                elif signal == TrainSignal.BEAM_RL:
+                    minibatch_reward = do_beam_rl(model,
+                                                  inp_grids, out_grids, targets,
+                                                  envs, reward_comb_fun,
+                                                  tgt_start, tgt_end, tgt_pad,
+                                                  max_len, args.rl_beam, args.rl_inner_batch, args.rl_use_ref)
+                else:
+                    raise NotImplementedError("Unknown Environment type")
                 recent_losses.append(minibatch_reward)
         
         else:
@@ -342,7 +351,8 @@ for epoch_idx in range(0, args.nb_epochs):
             # Dump the training losses
             with open(str(train_loss_path), "w") as train_loss_file:
                 json.dump(losses, train_loss_file, indent=2)
-                
+            
+        
     # Dump the weights at the end of the epoch
     path_to_weight_dump = models_dir / ("weights_%d.model" % epoch_idx)
     with open(str(path_to_weight_dump), "wb") as weight_file:
