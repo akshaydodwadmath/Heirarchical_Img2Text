@@ -209,10 +209,10 @@ class MultiIOProgramDecoder(nn.Module):
         # We will make it a batch size of beam_size
         batch_state = None  # First one is the learned default state
         batch_grammar_state = None
-        batch_inputs = Variable(tt.LongTensor(batch_size, 1).fill_(tgt_start), volatile=vol)
+        batch_inputs = Variable(tt.LongTensor(batch_size, 1).fill_(tgt_start))
         batch_list_inputs = [[tgt_start]]*batch_size
         batch_io_embeddings = io_embeddings
-        batch_idx = Variable(torch.arange(0, batch_size, 1).long(), volatile=vol)
+        batch_idx = Variable(torch.arange(0, batch_size, 1).long())
         if use_cuda:
             batch_idx = batch_idx.cuda()
         beams_per_sp = [1 for _ in range(batch_size)]
@@ -272,8 +272,7 @@ class MultiIOProgramDecoder(nn.Module):
                 if self.syntax_checker is not None:
                     for idx in sp_parent_idxs.data:
                         new_batch_checker.append(copy.copy(batch_grammar_state[idx]))
-                sp_next_batch_idxs = Variable(tt.LongTensor(sp_curr_beam_size).fill_(i),
-                                              volatile=vol)
+                sp_next_batch_idxs = Variable(tt.LongTensor(sp_curr_beam_size).fill_(i))
                 # Get the idxs of the batches
                 if use_cuda:
                     sp_batch_inputs = sp_batch_inputs.cuda()
@@ -730,7 +729,39 @@ class IOs2Seq(nn.Module):
                                                    list_inp_sequences)
         return dec_outs, syntax_mask
     
-    
+    def score_multiple_decs(self, input_grids, output_grids,
+                            tgt_inp_sequences, list_inp_sequences,
+                            tgt_out_sequences, nb_cand_per_sp):
+        '''
+        {input,output}_grids: input_batch_size x nb_ios x channels x height x width
+        tgt_{inp,out}_sequences: nb_seq_to_score x max_seq_len
+        list_inp_sequences: same as tgt_inp_sequences but under list form
+        nb_cand_per_sp: Indicate how many sequences each of the row of {input,output}_grids represent
+        '''
+        assert sum(nb_cand_per_sp) == tgt_inp_sequences.size(0)
+        assert len(nb_cand_per_sp) == input_grids.size(0)
+        batch_size, seq_len = tgt_inp_sequences.size()
+        io_embedding = self.encoder(input_grids, output_grids)
+
+        io_emb_dims = io_embedding.size()[1:]
+        expands = [(nb_cands, ) + io_emb_dims for nb_cands in nb_cand_per_sp]
+        # Reshape the io_embedding to have one per input samples
+        all_io_embs = torch.cat([io_embedding.narrow(0, pos, 1).expand(*exp_dim)
+                                 for pos, exp_dim in enumerate(expands)], 0)
+
+        dec_outs, _, _, _ = self.decoder(tgt_inp_sequences,
+                                         all_io_embs,
+                                         list_inp_sequences)
+
+        # We need to get a logsoftmax at each timestep
+        dec_outs = dec_outs.contiguous().view(batch_size*seq_len, -1)
+        lpb = F.log_softmax(dec_outs, dim=1)
+        lpb = lpb.view(batch_size, seq_len, -1)
+
+        out_lpb = torch.gather(lpb, 2, tgt_out_sequences.unsqueeze(2)).squeeze(2)
+        
+        return out_lpb
+        
     def beam_sample(self, input_grids, output_grids,
                     tgt_start, tgt_end, max_len,
                     beam_size, top_k, vol=True):

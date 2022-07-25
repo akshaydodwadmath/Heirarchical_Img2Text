@@ -182,8 +182,6 @@ def evaluate_model(model_weights,
             # Semantic matches
             for rank, dec in enumerate(sp_decoded):
                 pred = dec[-1]
-                #inter_pred = pred[:5] + [21]
-                print(pred)
                 parse_success, cand_prog = simulator.get_prog_ast(pred)
                 if (not parse_success):
                     continue
