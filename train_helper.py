@@ -75,7 +75,7 @@ def do_beam_rl(model,
                envs, reward_comb_fun,
                # Config
                tgt_start_idx, tgt_end_idx, pad_idx,
-               max_len, beam_size, rl_inner_batch, rl_use_ref):
+               max_len, beam_size, rl_inner_batch, rl_use_ref, rm_state):
     '''
     Rather than doing an actual expected reward,
     evaluate the most likely programs using a beam search (with `beam_sample`)
@@ -83,6 +83,7 @@ def do_beam_rl(model,
     Similarly to `do_rl_minibatch_two_steps`, first decode the programs as Volatile,
     then score them.
     '''
+    
     batch_reward = 0
     use_cuda = inp_grids.is_cuda
     tt = torch.cuda if use_cuda else torch
@@ -106,12 +107,12 @@ def do_beam_rl(model,
                         break
                 else:
                     candidates_to_score.append((None, ref)) # Don't know its lpb
-
+       
         # Build the inputs to be scored
         nb_cand_per_sp = [len(candidates) for candidates in to_score]
         in_tgt_seqs = []
         preds  = [pred for lp, pred in itertools.chain(*to_score)]
-        lines = [[tgt_start_idx] + line  for line in preds]
+        lines = [[1] + line  for line in preds]
         lens = [len(line) for line in lines]
         ib_max_len = max(lens)
 
@@ -142,7 +143,8 @@ def do_beam_rl(model,
         for env, all_decs in zip(scorers, to_score):
             sp_rewards = []
             for (lpb, dec) in all_decs:
-                sp_rewards.append(env.step_reward(dec, True))
+
+                sp_rewards.append(env.step_reward(dec,rm_state, True ))
             per_sp_reward.append(sp_rewards)
 
         per_sp_lpb = []

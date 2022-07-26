@@ -68,6 +68,7 @@ class Beam(object):
         self.next_beam_input = None
         self.next_beam_input_list = None
         self.parent_beam_idxs = None
+        self.initialLength = 0
 
     def get_next_input(self):
         return Variable(self.next_beam_input, volatile=True), self.next_beam_input_list
@@ -82,7 +83,6 @@ class Beam(object):
         '''
         numWords = wordLprobas.size(1)
         numExpandWords = numWords - 1
-
 
         #########################################
         # Evaluate all finishing possibilities. #
@@ -99,13 +99,15 @@ class Beam(object):
                 
                 seq = [self.out_end]
                 parent_step_idx = -1
-          
+                
                 prev_input = self.ts_input_for_beam[parent_step_idx][beam_idx]
+               
                 while prev_input != self.out_start:
                     seq.append(prev_input)
                     beam_idx = self.parentBeam[parent_step_idx][beam_idx]
                     parent_step_idx -= 1
                     prev_input = self.ts_input_for_beam[parent_step_idx][beam_idx]
+                    
                 seq.reverse()
                 seq_rep = (beam_lp, seq)
                 
@@ -125,7 +127,7 @@ class Beam(object):
                                         wordLprobas.narrow(1, self.out_end+1,
                                                            numWords - (self.out_end+1))],
                                        1)
-        if len(self.parentBeam)>0:
+        if (len(self.parentBeam) - self.initialLength) >0:
             prev_score = self.scores.unsqueeze(1).expand_as(expand_wordLprobas)
             ext_beam_score = expand_wordLprobas + prev_score
         else:
@@ -158,10 +160,12 @@ class Beam(object):
 
         parent_idxs = self.parent_beam_idxs.cpu().numpy().tolist()
         next_ts_beam_input = self.next_beam_input.cpu().numpy().tolist()
+        
+   
         self.next_beam_input_list = next_ts_beam_input
         self.parentBeam.append(parent_idxs)
+       
         self.ts_input_for_beam.append(next_ts_beam_input)
-
         if (len(self.done_seq) == self.k_best):
             best_potential_to_cont = self.scores.max()
             if self.done_seq[0][0] > best_potential_to_cont:
@@ -169,6 +173,13 @@ class Beam(object):
                 # beams over the ones we already collected
                 self.done = True
         return self.done
+    
+    def advance_initial_beam(self, tokens):
+        self.ts_input_for_beam.append([tokens for _ in range(self.nb_beams) ])
+        self.parentBeam.append([0 for _ in range(self.nb_beams)])
+        self.initialLength +=1
+        done = True
+        return done
 
     def get_sampled(self):
         return heapq.nlargest(self.k_best, self.done_seq)

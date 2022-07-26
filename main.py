@@ -247,188 +247,223 @@ best_val_acc = np.NINF
 batch_size = args.batch_size
 env = args.environment
 
-for epoch_idx in range(0, args.nb_epochs):
-    nb_ios_for_epoch = args.nb_ios
-    # This is definitely not the most efficient way to do it but oh well
-    dataset = shuffle_dataset(dataset, batch_size)
-    for sp_idx in tqdm(range(0, len(dataset["sources"]), batch_size)):
-    #for sp_idx in tqdm(range(0, 1, batch_size)):
+for iterate in range(2,3):
+    for epoch_idx in range(0, args.nb_epochs):
+        nb_ios_for_epoch = args.nb_ios
+        # This is definitely not the most efficient way to do it but oh well
+        dataset = shuffle_dataset(dataset, batch_size)
+        for sp_idx in tqdm(range(0, len(dataset["sources"]), batch_size)):
+        #for sp_idx in tqdm(range(0, 1, batch_size)):
 
 
-        batch_idx = int(sp_idx/batch_size)
-        optimizer.zero_grad()
+            batch_idx = int(sp_idx/batch_size)
+            optimizer.zero_grad()
 
-        if signal == TrainSignal.SUPERVISED:
-            inp_grids, out_grids, \
-                in_tgt_seq, in_tgt_seq_list, out_tgt_seq, \
-                _, _, _, _, _ = get_minibatch(dataset, sp_idx, batch_size,
-                                              tgt_start, tgt_end, tgt_pad,
-                                              nb_ios_for_epoch, simulator, args.intermediate)
-            #TODO
-            if args.use_cuda:
-                inp_grids, out_grids = inp_grids.cuda(), out_grids.cuda()
-                in_tgt_seq, out_tgt_seq = in_tgt_seq.cuda(), out_tgt_seq.cuda()
-            # if learn_syntax:
-                # minibatch_loss = do_syntax_weighted_minibatch(model,
-                                                              # inp_grids, out_grids,
-                                                              # in_tgt_seq, in_tgt_seq_list,
-                                                              # out_tgt_seq,
-                                                              # loss_criterion, beta)
-            # else:
-            minibatch_loss = do_supervised_minibatch(model,
-                                                     inp_grids, out_grids,
-                                                     in_tgt_seq, in_tgt_seq_list,
-                                                     out_tgt_seq, loss_criterion)
-            recent_losses.append(minibatch_loss)
-            
-            
-            
-        elif signal == TrainSignal.RL or signal == TrainSignal.BEAM_RL:
+            if signal == TrainSignal.SUPERVISED:
                 inp_grids, out_grids, \
-                    _, _, _, \
-                    inp_worlds, out_worlds, \
-                    inter_worlds_1, inter_worlds_2, \
-                    targets, \
-                    inp_test_worlds, out_test_worlds, \
-                    inter_test_worlds_1, inter_test_worlds_2, \
-                        target_subprog1, target_subprog2 = get_minibatch(dataset, sp_idx, batch_size,
-                                                                     tgt_start, tgt_end, tgt_pad,
-                                                                     nb_ios_for_epoch, simulator, args.intermediate)
+                    in_tgt_seq, in_tgt_seq_list, out_tgt_seq, \
+                    _, _, _, _, _ = get_minibatch(dataset, sp_idx, batch_size,
+                                                tgt_start, tgt_end, tgt_pad,
+                                                nb_ios_for_epoch, simulator, args.intermediate)
+                #TODO
                 if args.use_cuda:
                     inp_grids, out_grids = inp_grids.cuda(), out_grids.cuda()
+                    in_tgt_seq, out_tgt_seq = in_tgt_seq.cuda(), out_tgt_seq.cuda()
+                # if learn_syntax:
+                    # minibatch_loss = do_syntax_weighted_minibatch(model,
+                                                                # inp_grids, out_grids,
+                                                                # in_tgt_seq, in_tgt_seq_list,
+                                                                # out_tgt_seq,
+                                                                # loss_criterion, beta)
+                # else:
+                minibatch_loss = do_supervised_minibatch(model,
+                                                        inp_grids, out_grids,
+                                                        in_tgt_seq, in_tgt_seq_list,
+                                                        out_tgt_seq, loss_criterion)
+                recent_losses.append(minibatch_loss)
                 
-                # We use 1/nb_rollouts as the reward to normalize wrt the
-                # size of the rollouts
-                if signal == TrainSignal.RL:
-                    reward_norm = 1 / float(args.nb_rollouts)
-                elif signal == TrainSignal.BEAM_RL:
-                    reward_norm = 1
-                    
-           
                 
-                env_cls = EnvironmentClasses[env]
-                if "Consistency" in env:
-                    envs = [env_cls(reward_norm, trg_prog, sp_inp_worlds, sp_out_worlds, sp_inter_worlds_1 , sp_inter_worlds_2 , simulator)
-                            for trg_prog, sp_inp_worlds, sp_out_worlds, sp_inter_worlds_1 , sp_inter_worlds_2 
-                            in zip(targets, inp_worlds, out_worlds, inter_worlds_1, inter_worlds_2)]
-                elif "Generalization" in env:
-
-                    envs = [env_cls(reward_norm, trg_prog, sp_inp_test_worlds, sp_out_test_worlds, sp_inter_test_worlds_1, sp_inter_test_worlds_2, simulator )
-                            for trg_prog, sp_inp_test_worlds, sp_out_test_worlds, sp_inter_test_worlds_1, sp_inter_test_worlds_2
-                            in zip(targets, inp_test_worlds, out_test_worlds, inter_test_worlds_1, inter_test_worlds_2)]
-                else:
-                    raise NotImplementedError("Unknown environment type")
                 
-                if signal == TrainSignal.RL:
+            elif signal == TrainSignal.RL or signal == TrainSignal.BEAM_RL:
+                    inp_grids, out_grids, \
+                        _, _, _, \
+                        inp_worlds, out_worlds, \
+                        inter_worlds_1, inter_worlds_2, \
+                        targets, \
+                        inp_test_worlds, out_test_worlds, \
+                        inter_test_worlds_1, inter_test_worlds_2, \
+                            target_subprog1, target_subprog2 = get_minibatch(dataset, sp_idx, batch_size,
+                                                                        tgt_start, tgt_end, tgt_pad,
+                                                                        nb_ios_for_epoch, simulator, args.intermediate)
+                    if args.use_cuda:
+                        inp_grids, out_grids = inp_grids.cuda(), out_grids.cuda()
                     
-                    lens = [len(target) for target in targets]
-                    max_len = max(lens) + 10
-                    batch_list_inputs = [[tgt_start]]*len(targets)
-                    
-                    minibatch_reward_rm1 = do_rl_minibatch(model,
-                                                       inp_grids, out_grids,
-                                                       envs,
-                                                       batch_list_inputs, tgt_end, max_len,
-                                                       args.nb_rollouts, RMStates['Full'])
-                    
-                    
-                    lens = [len(target) - len(target_subprog) for target,target_subprog in zip(targets,target_subprog1)]
-                    max_len = max(lens) + 11
-                    batch_list_inputs = target_subprog1
-                    
-                    minibatch_reward_rm2 = do_rl_minibatch(model,
-                                                       inp_grids, out_grids,
-                                                       envs,
-                                                       tgt_start, tgt_end, max_len,
+                    # We use 1/nb_rollouts as the reward to normalize wrt the
+                    # size of the rollouts
+                    if signal == TrainSignal.RL:
+                        reward_norm = 1 / float(args.nb_rollouts)
+                    elif signal == TrainSignal.BEAM_RL:
+                        reward_norm = 1
+                        
             
                     
-                    lens = [len(target) - len(target_subprog) for target,target_subprog in zip(targets,target_subprog2)]
-                    max_len = max(lens) + 11
-                    batch_list_inputs = target_subprog2
-                    
-                    minibatch_reward_rm3 = do_rl_minibatch(model,
-                                                       inp_grids, out_grids,
-                                                       envs,
-                                                       batch_list_inputs, tgt_end, max_len,
-                                                       args.nb_rollouts, RMStates['InterGrid2'])
-                    
-                    ##minibatch_reward_rm2  = do_rl_minibatch(model,
-                                            ##inp_grids, out_grids,
-                                            ##envs,
-                                            ##tgt_start, tgt_end, (max_len-3),
-                                            ##args.nb_rollouts, rm_state)
-                    #minibatch_reward_rm2  = do_rl_minibatch(model,
-                                            #inp_grids, out_grids,
-                                            #envs,
-                                            #tgt_start, tgt_end, max_len,
-                                            #args.nb_rollouts, 10)
-                    minibatch_reward = minibatch_reward_rm1 + minibatch_reward_rm2 + minibatch_reward_rm3
-                                                           args.nb_rollouts)
-                elif signal == TrainSignal.BEAM_RL:
-                    minibatch_reward = do_beam_rl(model,
-                                                  inp_grids, out_grids, targets,
-                                                  envs, reward_comb_fun,
-                                                  tgt_start, tgt_end, tgt_pad,
-                                                  max_len, args.rl_beam, args.rl_inner_batch, args.rl_use_ref)
-                else:
-                    raise NotImplementedError("Unknown Environment type")
-                                                       batch_list_inputs, tgt_end, max_len,
-                                                       args.nb_rollouts, RMStates['InterGrid1'])
-                recent_losses.append(minibatch_reward)
-        
-        else:
-                raise NotImplementedError("Unknown Training method")
-                
-                
-        optimizer.step()
-        
-        if (batch_idx % args.log_frequency == args.log_frequency-1 and len(recent_losses) > 0) or \
-           (len(dataset["sources"]) - sp_idx ) < batch_size:
-            logging.info('Epoch : %d Minibatch : %d Loss : %.5f' % (
-                epoch_idx, batch_idx, sum(recent_losses)/len(recent_losses))
-            )
-            losses.extend(recent_losses)
-            recent_losses = []
-            # Dump the training losses
-            with open(str(train_loss_path), "w") as train_loss_file:
-                json.dump(losses, train_loss_file, indent=2)
-            
-        
-    # Dump the weights at the end of the epoch
-    path_to_weight_dump = models_dir / ("weights_%d.model" % epoch_idx)
-    with open(str(path_to_weight_dump), "wb") as weight_file:
-        # Needs to be in cpu mode to dump, otherwise will be annoying to load
-        if args.use_cuda:
-            model.cpu()
-        torch.save(model, weight_file)
-        if args.use_cuda:
-            model.cuda()
-    previous_weight_dump = models_dir / ("weights_%d.model" % (epoch_idx-1))
-    #if previous_weight_dump.exists():
-        #os.remove(str(previous_weight_dump))
-    # Dump the training losses
-    with open(str(train_loss_path), "w") as train_loss_file:
-        json.dump(losses, train_loss_file, indent=2)
+                    env_cls = EnvironmentClasses[env]
+                    if "Consistency" in env:
+                        envs = [env_cls(reward_norm, trg_prog, sp_inp_worlds, sp_out_worlds, sp_inter_worlds_1 , sp_inter_worlds_2 , simulator)
+                                for trg_prog, sp_inp_worlds, sp_out_worlds, sp_inter_worlds_1 , sp_inter_worlds_2 
+                                in zip(targets, inp_worlds, out_worlds, inter_worlds_1, inter_worlds_2)]
+                    elif "Generalization" in env:
 
-    logging.info("Done with epoch %d." % epoch_idx)
-    
-    
-    if (epoch_idx+1) % args.val_frequency == 0 or (epoch_idx+1) == args.nb_epochs:
-        # Evaluate the model on the validation set
-        out_path = str(result_dir / ("eval/epoch_%d/val_.txt" % epoch_idx))
-        val_acc = evaluate_model(str(path_to_weight_dump), args.vocab,
-                                 args.val_file, 5, 0, use_grammar,
-                                 out_path, 100, 50, batch_size,
-                                 args.use_cuda, args.intermediate, False)
-        logging.info("Epoch : %d ValidationAccuracy : %f." % (epoch_idx, val_acc))
-        if val_acc > best_val_acc:
-            logging.info("Epoch : %d ValidationBest : %f." % (epoch_idx, val_acc))
-            best_val_acc = val_acc
-            path_to_weight_dump = models_dir / "best.model"
-            with open(str(path_to_weight_dump), "wb") as weight_file:
-                # Needs to be in cpu mode to dump, otherwise will be annoying to load
-                if args.use_cuda:
-                    model.cpu()
-                torch.save(model, weight_file)
-                if args.use_cuda:
-                    model.cuda()
+                        envs = [env_cls(reward_norm, trg_prog, sp_inp_test_worlds, sp_out_test_worlds, sp_inter_test_worlds_1, sp_inter_test_worlds_2, simulator )
+                                for trg_prog, sp_inp_test_worlds, sp_out_test_worlds, sp_inter_test_worlds_1, sp_inter_test_worlds_2
+                                in zip(targets, inp_test_worlds, out_test_worlds, inter_test_worlds_1, inter_test_worlds_2)]
+                    else:
+                        raise NotImplementedError("Unknown environment type")
+                    
+                    if signal == TrainSignal.RL:
+                        
+                        lens = [len(target) for target in targets]
+                        max_len = max(lens) + 10
+                        batch_list_inputs = [[tgt_start]]*len(targets)
+                        
+                        minibatch_reward_rm1 = do_rl_minibatch(model,
+                                                        inp_grids, out_grids,
+                                                        envs,
+                                                        batch_list_inputs, tgt_end, max_len,
+                                                        args.nb_rollouts, RMStates['Full'])
+                        
+                        
+                        lens = [len(target) - len(target_subprog) for target,target_subprog in zip(targets,target_subprog1)]
+                        max_len = max(lens) + 11
+                        batch_list_inputs = target_subprog1
+                        
+                        minibatch_reward_rm2 = do_rl_minibatch(model,
+                                                        inp_grids, out_grids,
+                                                        envs,
+                                                        batch_list_inputs, tgt_end, max_len,
+                                                        args.nb_rollouts, RMStates['InterGrid1'])
+                
+                        
+                        lens = [len(target) - len(target_subprog) for target,target_subprog in zip(targets,target_subprog2)]
+                        max_len = max(lens) + 11
+                        batch_list_inputs = target_subprog2
+                        
+                        minibatch_reward_rm3 = do_rl_minibatch(model,
+                                                        inp_grids, out_grids,
+                                                        envs,
+                                                        batch_list_inputs, tgt_end, max_len,
+                                                        args.nb_rollouts, RMStates['InterGrid2'])
+                        
+                        ##minibatch_reward_rm2  = do_rl_minibatch(model,
+                                                ##inp_grids, out_grids,
+                                                ##envs,
+                                                ##tgt_start, tgt_end, (max_len-3),
+                                                ##args.nb_rollouts, rm_state)
+                        #minibatch_reward_rm2  = do_rl_minibatch(model,
+                                                #inp_grids, out_grids,
+                                                #envs,
+                                                #tgt_start, tgt_end, max_len,
+                                                #args.nb_rollouts, 10)
+                        minibatch_reward = minibatch_reward_rm1 + minibatch_reward_rm2 + minibatch_reward_rm3
+                                                    
+                    elif signal == TrainSignal.BEAM_RL:
+                        if (iterate == 0) :    
+                            lens = [len(target) - len(target_subprog) for target,target_subprog in zip(targets,target_subprog2)]
+                            max_len = max(lens) + 11
+                            batch_list_inputs = target_subprog2
+                            
+
+                            
+                            minibatch_reward = do_beam_rl(model,
+                                                            inp_grids, out_grids, targets,
+                                                            envs, reward_comb_fun,
+                                                            batch_list_inputs, tgt_end, tgt_pad,
+                                                            max_len, args.rl_beam, args.rl_inner_batch, args.rl_use_ref,
+                                                            RMStates['InterGrid2'])
+                        elif (iterate == 1) :
+                            lens = [len(target) - len(target_subprog) for target,target_subprog in zip(targets,target_subprog1)]
+                            max_len = max(lens) + 11
+                            batch_list_inputs = target_subprog1
+
+                            minibatch_reward = do_beam_rl(model,
+                                                            inp_grids, out_grids, targets,
+                                                            envs, reward_comb_fun,
+                                                            batch_list_inputs, tgt_end, tgt_pad,
+                                                            max_len, args.rl_beam, args.rl_inner_batch, args.rl_use_ref,
+                                                            RMStates['InterGrid1'])
+                            
+                        else:
+                                                        
+                            lens = [len(target) for target in targets]
+                            max_len = max(lens) + 10
+                            batch_list_inputs = [[tgt_start]]*len(targets)
+                            
+                            minibatch_reward = do_beam_rl(model,
+                                                            inp_grids, out_grids, targets,
+                                                            envs, reward_comb_fun,
+                                                            batch_list_inputs, tgt_end, tgt_pad,
+                                                            max_len, args.rl_beam, args.rl_inner_batch, args.rl_use_ref,
+                                                            RMStates['Full'])
+                        
+                    
+                    else:
+                        raise NotImplementedError("Unknown Environment type")
+                                                     
+                    recent_losses.append(minibatch_reward)
+            
+            else:
+                    raise NotImplementedError("Unknown Training method")
+                    
+                    
+            optimizer.step()
+            
+            if (batch_idx % args.log_frequency == args.log_frequency-1 and len(recent_losses) > 0) or \
+            (len(dataset["sources"]) - sp_idx ) < batch_size:
+                logging.info('Epoch : %d Minibatch : %d Loss : %.5f' % (
+                    epoch_idx, batch_idx, sum(recent_losses)/len(recent_losses))
+                )
+                losses.extend(recent_losses)
+                recent_losses = []
+                # Dump the training losses
+                with open(str(train_loss_path), "w") as train_loss_file:
+                    json.dump(losses, train_loss_file, indent=2)
+                
+            
+        # Dump the weights at the end of the epoch
+        path_to_weight_dump = models_dir / ("weights_%d.model" % epoch_idx)
+        with open(str(path_to_weight_dump), "wb") as weight_file:
+            # Needs to be in cpu mode to dump, otherwise will be annoying to load
+            if args.use_cuda:
+                model.cpu()
+            torch.save(model, weight_file)
+            if args.use_cuda:
+                model.cuda()
+        previous_weight_dump = models_dir / ("weights_%d.model" % (epoch_idx-1))
+        #if previous_weight_dump.exists():
+            #os.remove(str(previous_weight_dump))
+        # Dump the training losses
+        with open(str(train_loss_path), "w") as train_loss_file:
+            json.dump(losses, train_loss_file, indent=2)
+
+        logging.info("Done with epoch %d." % epoch_idx)
+        
+        
+        if (epoch_idx+1) % args.val_frequency == 0 or (epoch_idx+1) == args.nb_epochs:
+            # Evaluate the model on the validation set
+            out_path = str(result_dir / ("eval/epoch_%d/val_.txt" % epoch_idx))
+            val_acc = evaluate_model(str(path_to_weight_dump), args.vocab,
+                                    args.val_file, 5, 0, use_grammar,
+                                    out_path, 100, 50, batch_size,
+                                    args.use_cuda, args.intermediate, False)
+            logging.info("Epoch : %d ValidationAccuracy : %f." % (epoch_idx, val_acc))
+            if val_acc > best_val_acc:
+                logging.info("Epoch : %d ValidationBest : %f." % (epoch_idx, val_acc))
+                best_val_acc = val_acc
+                path_to_weight_dump = models_dir / "best.model"
+                with open(str(path_to_weight_dump), "wb") as weight_file:
+                    # Needs to be in cpu mode to dump, otherwise will be annoying to load
+                    if args.use_cuda:
+                        model.cpu()
+                    torch.save(model, weight_file)
+                    if args.use_cuda:
+                        model.cuda()

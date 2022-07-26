@@ -188,9 +188,8 @@ class MultiIOProgramDecoder(nn.Module):
     
     #TODO understand beam search, currently only used for model evaluation
     def beam_sample(self, io_embeddings,
-                    tgt_start, tgt_end, max_len,
+                    batch_list_inputs_passed, tgt_end, max_len,
                     beam_size, top_k, vol):
-
         '''
         io_embeddings: batch_size x nb_ios x io_emb_size
         All the rest are ints
@@ -200,39 +199,105 @@ class MultiIOProgramDecoder(nn.Module):
         use_cuda = io_embeddings.is_cuda
         tt = torch.cuda if use_cuda else torch
         force_beamcpu = True
+        
+        temp_h = (tt.FloatTensor(self.nb_layers, batch_size, nb_ios, self.lstm_hidden_size).fill_(0))
+        temp_c = (tt.FloatTensor(self.nb_layers, batch_size, nb_ios, self.lstm_hidden_size).fill_(0))
 
-        beams = [Beam(beam_size, top_k, tgt_start, tgt_end, use_cuda and not force_beamcpu)
+        beams = [Beam(beam_size, top_k, 1, tgt_end, use_cuda and not force_beamcpu)
                  for _ in range(batch_size)]
 
         lsm = nn.LogSoftmax(dim=1)
 
         # We will make it a batch size of beam_size
         batch_state = None  # First one is the learned default state
+        final_batch_state = None
         batch_grammar_state = None
-        batch_inputs = Variable(tt.LongTensor(batch_size, 1).fill_(tgt_start))
-        batch_list_inputs = [[tgt_start]]*batch_size
+        batch_inputs = Variable(tt.LongTensor(batch_size, 1).fill_(1))
+        batch_list_inputs = [[1]]*batch_size
         batch_io_embeddings = io_embeddings
         batch_idx = Variable(torch.arange(0, batch_size, 1).long())
         if use_cuda:
             batch_idx = batch_idx.cuda()
         beams_per_sp = [1 for _ in range(batch_size)]
+        
+        curr_batch_size = batch_size  # Will vary as we go along in the decoder
+        parent =  [idx for idx in range(curr_batch_size)]
+        prev_parent = [idx for idx in range(curr_batch_size)]
+        prev_parent = Variable(tt.LongTensor(prev_parent), requires_grad=False)
+        
+        for i in range(1, (max(map(len,batch_list_inputs_passed)))):
+            
+            # Do the forward of one time step, for all our traces to expand
+            dec_outs, dec_state, \
+            _, _ = self.forward(batch_inputs,
+                                                batch_io_embeddings,
+                                                batch_list_inputs,
+                                                batch_state,
+                                                batch_grammar_state)
+            
+            
+            
+            to_continue_mask = [i < (len(j)-1) for j in batch_list_inputs_passed]
+            
+            curr_batch_size = sum(to_continue_mask)
+            
+            next_batch_inputs = [inp[i] for inp in batch_list_inputs_passed if i < (len(inp)-1)]
+            
+            sp_from_idx = 0
+            for i, (beamState, cont , cur_input) in enumerate(zip(beams, to_continue_mask, next_batch_inputs )):
+                if(cont):
+                    is_done = beamState.advance_initial_beam(cur_input)
+            
+            
+            
+            batch_inputs = Variable(tt.LongTensor(next_batch_inputs).view(-1, 1),
+                                    requires_grad=False)
+            
+            batch_list_inputs = [[inp] for inp in next_batch_inputs]
+
+            ## Which are the parents that we need to get the state for
+            ## (potentially multiple times the same parent)
+            parents_to_continue = [parent_idx for (parent_idx, to_cont)
+                                   in zip(parent, to_continue_mask) if to_cont]
+            parent = Variable(tt.LongTensor(parents_to_continue), requires_grad=False)
+            
+            ## Gather the output for the next step of the decoder
+            
+            batch_state = (
+                dec_state[0].index_select(1, parent),
+                dec_state[1].index_select(1, parent)
+            )
+    
+            final_batch_state = (
+                temp_h.index_copy_(1, prev_parent, dec_state[0]),
+                temp_c.index_copy_(1, prev_parent, dec_state[1])   
+            )
+                
+            prev_parent = parent
+            batch_io_embeddings = batch_io_embeddings.index_select(0, parent)
+            
+        #Prepare for model learning
+        batch_io_embeddings = io_embeddings     
+        batch_list_inputs = [inp[-1] for inp in batch_list_inputs_passed]
+        for i, (beamState , cur_input) in enumerate(zip(beams, batch_list_inputs )):
+            is_done = beamState.advance_initial_beam(cur_input)
+        
+        batch_inputs = Variable(tt.LongTensor(batch_list_inputs).view(-1, 1),
+                            requires_grad=False)
+        curr_batch_size = batch_size
+        batch_state = final_batch_state
 
         for stp in range(max_len):
             # We will just do the forward of one timestep Each of the inputs
             # for a beam appears as a different sample in the batch
 
-           # if batch_state is not None:
-               # print('in_tgt_seq_list', (batch_state.size()))
-           # print('batch_inputs', batch_inputs)
             dec_outs, dec_state, \
             batch_grammar_state, _ = self.forward(batch_inputs,
                                                   batch_io_embeddings,
                                                   batch_list_inputs,
                                                   batch_state,
                                                   batch_grammar_state)
-            # dec_outs -> (batch_size*beam_size, 1, nb_out_word)
-            # -> the unnormalized/pre-softmax proba for each word
-            # dec_state -> 2-tuple (nb_layers, batch_size*beam_size, nb_ios, dim)
+
 
             # Get the actual word probability for each beam
             dec_outs = dec_outs.squeeze(1)  # (batch_size*beam_size x nb_out_word)
