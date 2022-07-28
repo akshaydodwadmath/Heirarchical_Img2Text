@@ -168,7 +168,7 @@ class MultiIOGrid(Environment):
     '''
 
     def __init__(self, reward_norm,
-                 target_program, input_worlds, output_worlds, inter_worlds_1, inter_worlds_2, simulator):
+                 target_program, input_worlds, output_worlds, inter_worlds_1, inter_worlds_2, iterate, simulator):
         '''
         reward_norm: float
         input_grids, output_grids: Reference IO for the synthesis
@@ -177,10 +177,24 @@ class MultiIOGrid(Environment):
                                         (target_program,
                                          input_worlds,
                                          output_worlds,
+                                         inter_worlds_1,
+                                         inter_worlds_2,
+                                         iterate,
                                          simulator))
         self.target_program = target_program
-        self.input_worlds = input_worlds
-        self.output_worlds = output_worlds
+        
+        if(iterate == 0):
+            self.input_worlds = input_worlds
+            self.output_worlds = inter_worlds_1
+        elif(iterate == 1):
+            self.input_worlds = inter_worlds_1
+            self.output_worlds = inter_worlds_2
+        elif(iterate == 2):
+            self.input_worlds = inter_worlds_2
+            self.output_worlds = output_worlds
+        else:
+            self.input_worlds = input_worlds
+            self.output_worlds = output_worlds
         self.inter_worlds_1 = inter_worlds_1
         self.inter_worlds_2 = inter_worlds_2
         self.simulator = simulator
@@ -207,13 +221,12 @@ class MultiIOGrid(Environment):
             # crashed. Ignore it.
             return 0
         rew = 0
-       # print('rm_state', rm_state)
         #if(rm_state == 1):
             #trace = trace[:5] + [21]
        # print("rm_state",rm_state)
        # print("trace",trace)
-        if(rm_state != RMStates['Full']):
-            trace = [3,4,20] + trace
+        #if(rm_state != RMStates['Full']):
+            #trace = [3,4,20] + trace
         parse_success, cand_prog = self.simulator.get_prog_ast(trace)
 
         ##TODEBUG
@@ -227,19 +240,25 @@ class MultiIOGrid(Environment):
                # print("self.input_worlds", len(self.input_worlds))
                 #if ( rm_state == 1):
                     #test_world = inter_worlds_1
-                if ( rm_state == RMStates['InterGrid1']):
-                    test_world = inter_worlds_1
-                if ( rm_state == RMStates['InterGrid2']):
-                    test_world = inter_worlds_2
+                if ( rm_state == 0):
+                    test_world_1 = inp_world
+                    test_world_2 = inter_worlds_1
+                elif ( rm_state == 1):
+                    test_world_1 = inter_worlds_1
+                    test_world_2 = inter_worlds_2
+                elif ( rm_state == 2):
+                    test_world_1 = inter_worlds_2
+                    test_world_2 = out_world
                 else:
-                    test_world = inp_world
-                res_emu = self.simulator.run_prog(cand_prog, test_world)
+                    test_world_1 = inp_world
+                    test_world_2 = out_world
+                res_emu = self.simulator.run_prog(cand_prog, test_world_1)
                 if res_emu.status != 'OK' or res_emu.crashed:
                     # Crashed or failed the simulator
                     # Set the reward to negative and stop looking
                     rew = -self.reward_norm
                     break
-                elif res_emu.outgrid != out_world:
+                elif res_emu.outgrid != test_world_2:
                     # Generated a wrong state
                     # Set the reward to negative and stop looking
                     rew = -self.reward_norm

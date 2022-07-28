@@ -239,6 +239,10 @@ def get_minibatch(dataset, sp_idx, batch_size,
     
     inp_grids = []
     out_grids = []
+    inter_grids_1 = []
+    inter_grids_2 = []
+    
+    
     inp_worlds= []
     out_worlds= []
     
@@ -301,19 +305,29 @@ def get_minibatch(dataset, sp_idx, batch_size,
         if (intermediate):
             subprog_1, subprog_2, subprog_3 = get_intermediate_prog(sample_target)
             
-            sample_inter_worlds_1, sample_inter_worlds_2 =  get_intermediate_grids(sample_inp_worlds, sample_out_worlds, subprog_1,subprog_2,subprog_3, simulator)
-            sample_test_inter_worlds_1, sample_test_inter_worlds_2 =  get_intermediate_grids(sample_test_inp_worlds, sample_test_out_worlds, subprog_1,subprog_2,subprog_3, simulator)
+            sample_inter_worlds_1, sample_inter_worlds_2, \
+                sample_inter_grids_1, sample_inter_grids_2 =  get_intermediate_grids(sample_inp_worlds, sample_out_worlds, subprog_1,subprog_2,subprog_3, simulator)
+            
+            sample_test_inter_worlds_1, sample_test_inter_worlds_2, \
+                 _, _ =  get_intermediate_grids(sample_test_inp_worlds, sample_test_out_worlds, subprog_1,subprog_2,subprog_3, simulator)
 
 
         
-            target_subprog1.append([start_idx] + subprog_1[:-1])
-            target_subprog2.append([start_idx] + subprog_1[:-1] + subprog_2[3:-1])
+            target_subprog1.append( subprog_1)
+            target_subprog2.append( subprog_2)
+            target_subprog3.append( subprog_3)
         
         sample_inp_grids = torch.stack(sample_inp_grids, 0)
         sample_out_grids = torch.stack(sample_out_grids, 0)
         inp_grids.append(sample_inp_grids)
         out_grids.append(sample_out_grids)
 
+
+        sample_inter_grids_1 = torch.stack(sample_inter_grids_1, 0)
+        sample_inter_grids_2 = torch.stack(sample_inter_grids_2, 0)
+        inter_grids_1.append(sample_inter_grids_1)
+        inter_grids_2.append(sample_inter_grids_2)
+        
         inp_worlds.append(sample_inp_worlds)
         out_worlds.append(sample_out_worlds)
         
@@ -329,6 +343,9 @@ def get_minibatch(dataset, sp_idx, batch_size,
         out_test_worlds.append(sample_test_out_worlds)
     inp_grids = Variable(torch.stack(inp_grids, 0), volatile=volatile_vars)
     out_grids = Variable(torch.stack(out_grids, 0), volatile=volatile_vars)
+    
+    inter_grids_1 = Variable(torch.stack(inter_grids_1, 0), volatile=volatile_vars)
+    inter_grids_2 = Variable(torch.stack(inter_grids_2, 0), volatile=volatile_vars)
    
     lines = [
         [start_idx] + line for line in targets
@@ -352,9 +369,9 @@ def get_minibatch(dataset, sp_idx, batch_size,
     #print('in_tgt_seq', in_tgt_seq)
     out_tgt_seq = Variable(torch.LongTensor(output_lines), volatile=volatile_vars)
  
-    return inp_grids, out_grids, in_tgt_seq, input_lines, out_tgt_seq, \
+    return inp_grids, out_grids, inter_grids_1, inter_grids_2, in_tgt_seq, input_lines, out_tgt_seq, \
         inp_worlds, out_worlds, inter_worlds_1, inter_worlds_2, targets, inp_test_worlds, out_test_worlds, inter_test_worlds_1, inter_test_worlds_2, \
-            target_subprog1, target_subprog2
+            target_subprog1, target_subprog2, target_subprog3
     
 
 
@@ -376,6 +393,8 @@ def get_intermediate_prog(line):
 def get_intermediate_grids(inp_worlds, out_worlds, subprog_1, subprog_2, subprog_3, simulator):
     inter_1 = []
     inter_2 = []
+    inter_grid_1 = []
+    inter_grid_2 = []
     ## Make sure that the reference program works for the IO given
     #parse_success, ref_prog = self.simulator.get_prog_ast(subprog_1)
     #assert(parse_success)
@@ -421,5 +440,7 @@ def get_intermediate_grids(inp_worlds, out_worlds, subprog_1, subprog_2, subprog
             
         inter_1.append(temp_1)
         inter_2.append(temp_2)
+        inter_grid_1.append(World.toPytorchTensor(temp_1, IMG_DIM))
+        inter_grid_2.append(World.toPytorchTensor(temp_2, IMG_DIM))
         
-    return inter_1,inter_2
+    return inter_1,inter_2, inter_grid_1, inter_grid_2

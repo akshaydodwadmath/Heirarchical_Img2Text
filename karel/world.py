@@ -259,11 +259,11 @@ class World:
         for r in range(self.rows):
             for c in range(self.cols):
                 # Obstacles
-                tensor[4][r+1][c+1] = self.blocked[r][c]
+                tensor[4][r+1][c+1] = torch.from_numpy(np.asarray(self.blocked[r][c]))
                 # Markers
                 nb_markers = self.markers[r][c]
                 if nb_markers > 0:
-                    tensor[5+nb_markers][r+1][c+1] = 1
+                    tensor[(5+nb_markers).long()][r+1][c+1] = 1
 
         return tensor
 
