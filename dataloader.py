@@ -248,6 +248,9 @@ def get_minibatch(dataset, sp_idx, batch_size,
     inter_test_worlds_1 = []
     inter_test_worlds_2 = []
     
+    ####Idea of passing almost full to no inputs
+    #target_subprog = [[] for i in range(0,15)]
+    
     target_subprog1 = []
     target_subprog2 = []
     target_subprog3 = []
@@ -301,11 +304,15 @@ def get_minibatch(dataset, sp_idx, batch_size,
         if (intermediate):
             subprog_1, subprog_2, subprog_3 = get_intermediate_prog(sample_target)
             
+            ####Idea of passing almost full to no inputs
+            #for i in range(0,15):
+                #subprog  =  get_intermediate_prog_2(sample_target, i+1)
+                #target_subprog[i].append([start_idx] + subprog)
+              
+            
             sample_inter_worlds_1, sample_inter_worlds_2 =  get_intermediate_grids(sample_inp_worlds, sample_out_worlds, subprog_1,subprog_2,subprog_3, simulator)
             sample_test_inter_worlds_1, sample_test_inter_worlds_2 =  get_intermediate_grids(sample_test_inp_worlds, sample_test_out_worlds, subprog_1,subprog_2,subprog_3, simulator)
 
-
-        
             target_subprog1.append([start_idx] + subprog_1[:-1])
             target_subprog2.append([start_idx] + subprog_1[:-1] + subprog_2[3:-1])
         
@@ -356,7 +363,9 @@ def get_minibatch(dataset, sp_idx, batch_size,
         inp_worlds, out_worlds, inter_worlds_1, inter_worlds_2, targets, inp_test_worlds, out_test_worlds, inter_test_worlds_1, inter_test_worlds_2, \
             target_subprog1, target_subprog2
     
-
+####Idea of passing almost full to no inputs
+#def get_intermediate_prog_2(line , i):
+    #return line[:-i]
 
 def get_intermediate_prog(line):
     token_beg = ["DEF", "run", "m("] 
