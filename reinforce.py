@@ -187,11 +187,8 @@ class MultiIOGrid(Environment):
             self.input_worlds = input_worlds
             self.output_worlds = inter_worlds_1
         elif(iterate == 1):
-            self.input_worlds = inter_worlds_1
+            self.input_worlds = input_worlds
             self.output_worlds = inter_worlds_2
-        elif(iterate == 2):
-            self.input_worlds = inter_worlds_2
-            self.output_worlds = output_worlds
         else:
             self.input_worlds = input_worlds
             self.output_worlds = output_worlds
@@ -216,6 +213,7 @@ class MultiIOGrid(Environment):
         return (not is_final)
 
     def reward_value(self, trace, rm_state, is_final):
+        print("Trace", trace)
         if (not self.correct_reference):
             # There is some problem with the data because the reference program
             # crashed. Ignore it.
@@ -224,9 +222,9 @@ class MultiIOGrid(Environment):
         #if(rm_state == 1):
             #trace = trace[:5] + [21]
        # print("rm_state",rm_state)
-       # print("trace",trace)
-        #if(rm_state != RMStates['Full']):
-            #trace = [3,4,20] + trace
+        
+        if(rm_state != 2):
+            trace =  trace + [21]
         parse_success, cand_prog = self.simulator.get_prog_ast(trace)
 
         ##TODEBUG
@@ -244,14 +242,12 @@ class MultiIOGrid(Environment):
                     test_world_1 = inp_world
                     test_world_2 = inter_worlds_1
                 elif ( rm_state == 1):
-                    test_world_1 = inter_worlds_1
+                    test_world_1 = inp_world
                     test_world_2 = inter_worlds_2
-                elif ( rm_state == 2):
-                    test_world_1 = inter_worlds_2
-                    test_world_2 = out_world
                 else:
                     test_world_1 = inp_world
                     test_world_2 = out_world
+                    
                 res_emu = self.simulator.run_prog(cand_prog, test_world_1)
                 if res_emu.status != 'OK' or res_emu.crashed:
                     # Crashed or failed the simulator
@@ -277,10 +273,12 @@ class MultiIOGrid(Environment):
                         #break
                     #else:
                     rew = self.reward_norm
+  
         return rew
         
         
     def reward_value_rm(self, trace, is_final):
+        
         if (not self.correct_reference):
             # There is some problem with the data because the reference program
             # crashed. Ignore it.

@@ -85,7 +85,7 @@ def load_input_file(path_to_dataset, path_to_vocab):
            
             current_ios = []
             
-            rules = [(len(tgt_program_tkn) < 18), (tgt_program_tkn[3] in actions), \
+            rules = [(len(tgt_program_tkn) == 15), (tgt_program_tkn[3] in actions), \
             (tgt_program_tkn[4] in actions) , (tgt_program_tkn[5] in commands), \
             (tgt_program_tkn[-2] in actions), (tgt_program_tkn[-3] in actions)]
             
@@ -313,9 +313,8 @@ def get_minibatch(dataset, sp_idx, batch_size,
 
 
         
-            target_subprog1.append( subprog_1)
-            target_subprog2.append( subprog_2)
-            target_subprog3.append( subprog_3)
+            target_subprog1.append(subprog_1)
+            target_subprog2.append(subprog_1[:-1] + subprog_2[3:])
         
         sample_inp_grids = torch.stack(sample_inp_grids, 0)
         sample_out_grids = torch.stack(sample_out_grids, 0)

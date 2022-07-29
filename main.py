@@ -247,7 +247,7 @@ best_val_acc = np.NINF
 batch_size = args.batch_size
 env = args.environment
 
-for iterate in range(0,4):
+for iterate in range(0,3):
     for epoch_idx in range(0, args.nb_epochs):
         nb_ios_for_epoch = args.nb_ios
         # This is definitely not the most efficient way to do it but oh well
@@ -304,8 +304,6 @@ for iterate in range(0,4):
                         temp_tgt = target_subprog1
                     elif(iterate == 1):
                         temp_tgt = target_subprog2
-                    elif(iterate == 2):
-                        temp_tgt = target_subprog3
                     else:
                         temp_tgt = targets
                             
@@ -337,59 +335,38 @@ for iterate in range(0,4):
                     
                     if signal == TrainSignal.RL:
                         
-                        #lens = [len(target) for target in targets]
-                        #max_len = max(lens) + 10
-                        #batch_list_inputs = [[tgt_start]]*len(targets)
+                        lens = [len(temp) for temp in temp_tgt]
+                       
+                        batch_list_inputs = [[tgt_start]]*len(targets)
                         
-                        #minibatch_reward_rm1 = do_rl_minibatch(model,
-                                                        #inp_grids, out_grids,
-                                                        #envs,
-                                                        #batch_list_inputs, tgt_end, max_len,
-                                                        #args.nb_rollouts, RMStates['Full'])
-                        
-                        
-                        #lens = [len(target) - len(target_subprog) for target,target_subprog in zip(targets,target_subprog1)]
-                        #max_len = max(lens) + 11
-                        #batch_list_inputs = target_subprog1
-                        
-                        #minibatch_reward_rm2 = do_rl_minibatch(model,
-                                                        #inp_grids, out_grids,
-                                                        #envs,
-                                                        #batch_list_inputs, tgt_end, max_len,
-                                                        #args.nb_rollouts, RMStates['InterGrid1'])
-                
-                        
-                        #lens = [len(target) - len(target_subprog) for target,target_subprog in zip(targets,target_subprog2)]
-                        #max_len = max(lens) + 11
-                        #batch_list_inputs = target_subprog2
-                        
-                        #minibatch_reward_rm3 = do_rl_minibatch(model,
-                                                        #inp_grids, out_grids,
-                                                        #envs,
-                                                        #batch_list_inputs, tgt_end, max_len,
-                                                        #args.nb_rollouts, RMStates['InterGrid2'])
-                        
-                        ###minibatch_reward_rm2  = do_rl_minibatch(model,
-                                                ###inp_grids, out_grids,
-                                                ###envs,
-                                                ###tgt_start, tgt_end, (max_len-3),
-                                                ###args.nb_rollouts, rm_state)
-                        ##minibatch_reward_rm2  = do_rl_minibatch(model,
-                                                ##inp_grids, out_grids,
-                                                ##envs,
-                                                ##tgt_start, tgt_end, max_len,
-                                                ##args.nb_rollouts, 10)
-                                                
-                        max_len = iterate + 1
-                        batch_list_inputs = target_subprog[iterate]
-                       # print('max_len',max_len)
-                        #print('batch_list_inputs', batch_list_inputs)
-                        
-                        minibatch_reward = do_rl_minibatch(model,
+                        if(iterate == 0):
+                            max_len = 5
+                            minibatch_reward = do_rl_minibatch(model,
                                                         inp_grids, out_grids,
                                                         envs,
                                                         batch_list_inputs, tgt_end, max_len,
-                                                        args.nb_rollouts, iterate + 1)
+                                                        args.nb_rollouts, iterate)
+                        elif(iterate == 1):
+                            
+                            max_len = 12
+                            minibatch_reward = do_rl_minibatch(model,
+                                                        inp_grids, out_grids,
+                                                        envs,
+                                                        batch_list_inputs, tgt_end, max_len,
+                                                        args.nb_rollouts, iterate)
+                        else:
+                            max_len = 15
+                            minibatch_reward = do_rl_minibatch(model,
+                                                        inp_grids, out_grids,
+                                                        envs,
+                                                        batch_list_inputs, tgt_end, max_len,
+                                                        args.nb_rollouts, iterate)
+                        
+                        #minibatch_reward = do_rl_minibatch(model,
+                                                        #inp_grids, out_grids,
+                                                        #envs,
+                                                        #batch_list_inputs, tgt_end, max_len,
+                                                        #args.nb_rollouts, iterate + 1)
                         
                         #minibatch_reward = minibatch_reward_rm1 + minibatch_reward_rm2 + minibatch_reward_rm3
                                                     
@@ -398,6 +375,7 @@ for iterate in range(0,4):
                        
                         lens = [len(temp) for temp in temp_tgt]
                         max_len = max(lens) + 10
+                       
                         
                         if(iterate == 0):
                             minibatch_reward = do_beam_rl(model,
@@ -407,15 +385,9 @@ for iterate in range(0,4):
                                                         max_len, args.rl_beam, args.rl_inner_batch, args.rl_use_ref,
                                                         iterate)
                         elif(iterate == 1):
+                           
                             minibatch_reward = do_beam_rl(model,
-                                                        inter_grids_1, inter_grids_2, temp_tgt,
-                                                        envs, reward_comb_fun,
-                                                        tgt_start, tgt_end, tgt_pad,
-                                                        max_len, args.rl_beam, args.rl_inner_batch, args.rl_use_ref,
-                                                        iterate)
-                        elif(iterate == 2):
-                            minibatch_reward = do_beam_rl(model,
-                                                        inter_grids_2, out_grids, temp_tgt,
+                                                        inp_grids, inter_grids_2, temp_tgt,
                                                         envs, reward_comb_fun,
                                                         tgt_start, tgt_end, tgt_pad,
                                                         max_len, args.rl_beam, args.rl_inner_batch, args.rl_use_ref,

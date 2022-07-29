@@ -526,7 +526,7 @@ class MultiIOProgramDecoder(nn.Module):
                 rolls[cur_roll_idx].expand_samples(traj, multiplicity, sp_pb)
                 
             
-            to_continue_mask = [inp != tgt_end for inp in next_input]
+            to_continue_mask = [((inp != tgt_end) or (inp == tgt_end)) for inp in next_input]
            
             # For the next step, drop everything that we don't need to pursue
             # because they reached the end symbol
@@ -535,7 +535,7 @@ class MultiIOProgramDecoder(nn.Module):
                 # There is nothing left to sample from
                 break
             # Extract the ones we need to continue
-            next_batch_inputs = [inp for inp in next_input if inp != tgt_end]
+            next_batch_inputs = [inp for inp in next_input ]
             batch_inputs = Variable(tt.LongTensor(next_batch_inputs).view(-1, 1),
                                     requires_grad=False)
             batch_list_inputs = [[inp] for inp in next_batch_inputs]
