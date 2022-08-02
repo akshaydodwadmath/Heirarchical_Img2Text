@@ -113,7 +113,8 @@ def evaluate_model(model_weights,
         inp_test_worlds, out_test_worlds, \
         inter_test_worlds_1, inter_test_worlds_2, \
             target_subprog1, target_subprog2, \
-            target_subprog3    = get_minibatch(dataset, sp_idx, batch_size,
+            target_subprog3, \
+            input_subprog1,input_subprog2    = get_minibatch(dataset, sp_idx, batch_size,
                                                          tgt_start, tgt_end, tgt_pad,
                                                          nb_ios, simulator,  intermediate, shuffle=False, volatile_vars=True)
     

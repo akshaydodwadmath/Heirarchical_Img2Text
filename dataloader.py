@@ -252,6 +252,9 @@ def get_minibatch(dataset, sp_idx, batch_size,
     inter_test_worlds_1 = []
     inter_test_worlds_2 = []
     
+    input_subprog1 = []
+    input_subprog2 = []
+    
     target_subprog1 = []
     target_subprog2 = []
     target_subprog3 = []
@@ -312,7 +315,9 @@ def get_minibatch(dataset, sp_idx, batch_size,
                  _, _ =  get_intermediate_grids(sample_test_inp_worlds, sample_test_out_worlds, subprog_1,subprog_2,subprog_3, simulator)
 
 
-        
+            input_subprog1.append([start_idx] + subprog_1[:-1])
+            input_subprog2.append([start_idx] + subprog_1[:-1] + subprog_2[3:-1])
+            
             target_subprog1.append(subprog_1)
             target_subprog2.append(subprog_1[:-1] + subprog_2[3:])
         
@@ -370,7 +375,7 @@ def get_minibatch(dataset, sp_idx, batch_size,
  
     return inp_grids, out_grids, inter_grids_1, inter_grids_2, in_tgt_seq, input_lines, out_tgt_seq, \
         inp_worlds, out_worlds, inter_worlds_1, inter_worlds_2, targets, inp_test_worlds, out_test_worlds, inter_test_worlds_1, inter_test_worlds_2, \
-            target_subprog1, target_subprog2, target_subprog3
+            target_subprog1, target_subprog2, target_subprog3, input_subprog1, input_subprog2
     
 
 

@@ -295,7 +295,8 @@ for iterate in range(0,3):
                         inp_test_worlds, out_test_worlds, \
                         inter_test_worlds_1, inter_test_worlds_2, \
                             target_subprog1, target_subprog2, \
-                                target_subprog3= get_minibatch(dataset, sp_idx, batch_size,
+                                target_subprog3, \
+                                    input_subprog1,input_subprog2 = get_minibatch(dataset, sp_idx, batch_size,
                                                                         tgt_start, tgt_end, tgt_pad,
                                                                         nb_ios_for_epoch, simulator, args.intermediate)
                             
@@ -336,10 +337,13 @@ for iterate in range(0,3):
                     if signal == TrainSignal.RL:
                         
                         lens = [len(temp) for temp in temp_tgt]
-                       
+                        max_len = max(lens) + 10
                         batch_list_inputs = [[tgt_start]]*len(targets)
+                       
+                        
                         
                         if(iterate == 0):
+                        #    batch_list_inputs = [[tgt_start]]*len(targets)
                             max_len = 5
                             minibatch_reward = do_rl_minibatch(model,
                                                         inp_grids, out_grids,
@@ -347,7 +351,7 @@ for iterate in range(0,3):
                                                         batch_list_inputs, tgt_end, max_len,
                                                         args.nb_rollouts, iterate)
                         elif(iterate == 1):
-                            
+                           # batch_list_inputs = input_subprog1
                             max_len = 12
                             minibatch_reward = do_rl_minibatch(model,
                                                         inp_grids, out_grids,
@@ -355,6 +359,7 @@ for iterate in range(0,3):
                                                         batch_list_inputs, tgt_end, max_len,
                                                         args.nb_rollouts, iterate)
                         else:
+                            # batch_list_inputs = input_subprog2
                             max_len = 15
                             minibatch_reward = do_rl_minibatch(model,
                                                         inp_grids, out_grids,
@@ -424,14 +429,15 @@ for iterate in range(0,3):
                 
             
         # Dump the weights at the end of the epoch
-        path_to_weight_dump = models_dir / ("weights_%d_%d.model" % (iterate,epoch_idx))
-        with open(str(path_to_weight_dump), "wb") as weight_file:
-            # Needs to be in cpu mode to dump, otherwise will be annoying to load
-            if args.use_cuda:
-                model.cpu()
-            torch.save(model, weight_file)
-            if args.use_cuda:
-                model.cuda()
+        if(epoch_idx % 5 == 0):
+            path_to_weight_dump = models_dir / ("weights_%d_%d.model" % (iterate,epoch_idx))
+            with open(str(path_to_weight_dump), "wb") as weight_file:
+                # Needs to be in cpu mode to dump, otherwise will be annoying to load
+                if args.use_cuda:
+                    model.cpu()
+                torch.save(model, weight_file)
+                if args.use_cuda:
+                    model.cuda()
         #previous_weight_dump = models_dir / ("weights_%d_.model" % (epoch_idx-1))
         #if previous_weight_dump.exists():
             #os.remove(str(previous_weight_dump))
