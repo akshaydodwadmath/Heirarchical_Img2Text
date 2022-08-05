@@ -218,10 +218,8 @@ class MultiIOGrid(Environment):
             # There is some problem with the data because the reference program
             # crashed. Ignore it.
             return 0
+        
         rew = 0
-        #if(rm_state == 1):
-            #trace = trace[:5] + [21]
-       # print("rm_state",rm_state)
     
      #   print("prev trace", trace)
         if(rm_state == 0):
@@ -231,7 +229,7 @@ class MultiIOGrid(Environment):
         else:
             trace = [3,4,20] + trace[12:]
      #   print("trace", trace)
-        
+       
         parse_success, cand_prog = self.simulator.get_prog_ast(trace)
 
         ##TODEBUG
@@ -245,6 +243,7 @@ class MultiIOGrid(Environment):
                # print("self.input_worlds", len(self.input_worlds))
                 #if ( rm_state == 1):
                     #test_world = inter_worlds_1
+
                 if ( rm_state == 0):
                     test_world_1 = inp_world
                     test_world_2 = inter_worlds_1
@@ -256,6 +255,7 @@ class MultiIOGrid(Environment):
                     test_world_2 = out_world
                     
                 res_emu = self.simulator.run_prog(cand_prog, test_world_1)
+
                 if res_emu.status != 'OK' or res_emu.crashed:
                     # Crashed or failed the simulator
                     # Set the reward to negative and stop looking
@@ -280,7 +280,6 @@ class MultiIOGrid(Environment):
                         #break
                     #else:
                     rew = self.reward_norm
-  
         return rew
         
         

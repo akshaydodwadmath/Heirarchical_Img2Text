@@ -248,12 +248,13 @@ batch_size = args.batch_size
 env = args.environment
 
 for iterate in range(0,3):
+
     for epoch_idx in range(0, args.nb_epochs):
         nb_ios_for_epoch = args.nb_ios
         # This is definitely not the most efficient way to do it but oh well
         dataset = shuffle_dataset(dataset, batch_size)
         for sp_idx in tqdm(range(0, len(dataset["sources"]), batch_size)):
-            #print("iterate",iterate)
+
         #for sp_idx in tqdm(range(0, 1, batch_size)):
 
 
@@ -287,6 +288,7 @@ for iterate in range(0,3):
                 
             elif signal == TrainSignal.RL or signal == TrainSignal.BEAM_RL:
                     inp_grids, out_grids, \
+
                         inter_grids_1, inter_grids_2, \
                         _, _, _, \
                         inp_worlds, out_worlds, \
@@ -311,6 +313,7 @@ for iterate in range(0,3):
                     if args.use_cuda:
                         inp_grids, out_grids = inp_grids.cuda(), out_grids.cuda() 
                         inter_grids_1,inter_grids_2 = inter_grids_1.cuda(), inter_grids_2.cuda()
+
                     # We use 1/nb_rollouts as the reward to normalize wrt the
                     # size of the rollouts
                     if signal == TrainSignal.RL:
@@ -318,8 +321,6 @@ for iterate in range(0,3):
                     elif signal == TrainSignal.BEAM_RL:
                         reward_norm = 1
                         
-            
-                    
                     env_cls = EnvironmentClasses[env]
                     if "Consistency" in env:
                         envs = [env_cls(reward_norm, trg_prog, sp_inp_worlds, sp_out_worlds, sp_inter_worlds_1 , sp_inter_worlds_2 , iterate, simulator)
@@ -418,8 +419,10 @@ for iterate in range(0,3):
             
             if (batch_idx % args.log_frequency == args.log_frequency-1 and len(recent_losses) > 0) or \
             (len(dataset["sources"]) - sp_idx ) < batch_size:
+
                 logging.info('iterate : %d Epoch : %d Minibatch : %d Loss : %.5f' % (
                     iterate, epoch_idx, batch_idx, sum(recent_losses)/len(recent_losses))
+
                 )
                 losses.extend(recent_losses)
                 recent_losses = []
@@ -439,6 +442,7 @@ for iterate in range(0,3):
                 if args.use_cuda:
                     model.cuda()
         #previous_weight_dump = models_dir / ("weights_%d_.model" % (epoch_idx-1))
+
         #if previous_weight_dump.exists():
             #os.remove(str(previous_weight_dump))
         # Dump the training losses
@@ -450,24 +454,23 @@ for iterate in range(0,3):
         if (minibatch_reward > 10):
             print("break")
             break
-        
-        
-        #if (epoch_idx+1) % args.val_frequency == 0 or (epoch_idx+1) == args.nb_epochs:
-            ## Evaluate the model on the validation set
-            #out_path = str(result_dir / ("eval/epoch_%d/val_.txt" % epoch_idx))
-            #val_acc = evaluate_model(str(path_to_weight_dump), args.vocab,
-                                    #args.val_file, 5, 0, use_grammar,
-                                    #out_path, 100, 50, batch_size,
-                                    #args.use_cuda, args.intermediate, False)
-            #logging.info("Epoch : %d ValidationAccuracy : %f." % (epoch_idx, val_acc))
-            #if val_acc > best_val_acc:
-                #logging.info("Epoch : %d ValidationBest : %f." % (epoch_idx, val_acc))
-                #best_val_acc = val_acc
-                #path_to_weight_dump = models_dir / "best.model"
-                #with open(str(path_to_weight_dump), "wb") as weight_file:
-                    ## Needs to be in cpu mode to dump, otherwise will be annoying to load
-                    #if args.use_cuda:
-                        #model.cpu()
-                    #torch.save(model, weight_file)
-                    #if args.use_cuda:
-                        #model.cuda()
+       
+        if (epoch_idx+1) % args.val_frequency == 0 or (epoch_idx+1) == args.nb_epochs:
+            # Evaluate the model on the validation set
+            out_path = str(result_dir / ("eval/epoch_%d/val_.txt" % epoch_idx))
+            val_acc = evaluate_model(str(path_to_weight_dump), args.vocab,
+                                    args.val_file, 5, 0, use_grammar,
+                                    out_path, 100, 50, batch_size,
+                                    args.use_cuda, args.intermediate, False)
+            logging.info("Epoch : %d ValidationAccuracy : %f." % (epoch_idx, val_acc))
+            if val_acc > best_val_acc:
+                logging.info("Epoch : %d ValidationBest : %f." % (epoch_idx, val_acc))
+                best_val_acc = val_acc
+                path_to_weight_dump = models_dir / "best.model"
+                with open(str(path_to_weight_dump), "wb") as weight_file:
+                    # Needs to be in cpu mode to dump, otherwise will be annoying to load
+                    if args.use_cuda:
+                        model.cpu()
+                    torch.save(model, weight_file)
+                    if args.use_cuda:
+                        model.cuda()

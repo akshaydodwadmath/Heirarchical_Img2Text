@@ -109,7 +109,7 @@ def evaluate_model(model_weights,
         in_tgt_seq, in_tgt_seq_list, out_tgt_seq, \
         inp_worlds, out_worlds, \
         inter_worlds_1, inter_worlds_2, \
-        _, \
+        targets, \
         inp_test_worlds, out_test_worlds, \
         inter_test_worlds_1, inter_test_worlds_2, \
             target_subprog1, target_subprog2, \
@@ -150,9 +150,9 @@ def evaluate_model(model_weights,
                     diff = mask.astype(float) - norm_logit
                     diff = (diff + 1) / 2 # remap to [0,1]
                     np.save(os.path.join(decoded_dump_dir, file_name), diff)
-
+        batch_list_inputs = [[tgt_start]]*len(targets)
         decoded = model.beam_sample(inp_grids, out_grids,
-                                    tgt_start, tgt_end, max_len,
+                                    batch_list_inputs, tgt_end, max_len,
                                     beam_size, top_k)
         
         for batch_idx, (target, sp_decoded,
@@ -185,6 +185,7 @@ def evaluate_model(model_weights,
             # Semantic matches
             for rank, dec in enumerate(sp_decoded):
                 pred = dec[-1]
+                print("pred", pred)
                 parse_success, cand_prog = simulator.get_prog_ast(pred)
                 if (not parse_success):
                     continue

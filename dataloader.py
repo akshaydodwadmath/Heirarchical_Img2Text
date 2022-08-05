@@ -254,6 +254,7 @@ def get_minibatch(dataset, sp_idx, batch_size,
     
     input_subprog1 = []
     input_subprog2 = []
+
     
     target_subprog1 = []
     target_subprog2 = []
@@ -320,6 +321,7 @@ def get_minibatch(dataset, sp_idx, batch_size,
             
             target_subprog1.append(subprog_1)
             target_subprog2.append(subprog_1[:-1] + subprog_2[3:])
+
         
         sample_inp_grids = torch.stack(sample_inp_grids, 0)
         sample_out_grids = torch.stack(sample_out_grids, 0)
@@ -377,7 +379,9 @@ def get_minibatch(dataset, sp_idx, batch_size,
         inp_worlds, out_worlds, inter_worlds_1, inter_worlds_2, targets, inp_test_worlds, out_test_worlds, inter_test_worlds_1, inter_test_worlds_2, \
             target_subprog1, target_subprog2, target_subprog3, input_subprog1, input_subprog2
     
-
+####Idea of passing almost full to no inputs
+#def get_intermediate_prog_2(line , i):
+    #return line[:-i]
 
 def get_intermediate_prog(line):
     token_beg = ["DEF", "run", "m("] 
