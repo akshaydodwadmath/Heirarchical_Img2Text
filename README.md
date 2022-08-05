@@ -30,5 +30,13 @@ python3 eval_cmd.py --model_weights exps/fake_run/Weights/best.model --vocabular
 RL Beam RL Training:
 python3 main.py  --signal beam_rl --learning_rate 1e-5 --init_weights exps_150epochs_sup_owndatset_smallermodel/fake_run/Weights/weights_99.model --train_file data/train.json --result_folder exps/reinforcebeamRL_finetune --batch_size 16  --nb_epochs 5  --intermediate --rl_inner_batch 8 --rl_use_ref --rl_beam 64 --use_cuda
 
+CD with fixed lines(5>12>15)
+python3 main.py  --signal rl --learning_rate 1e-5 --init_weights exps_CD_with_intergrids_expanding_RL2/Weights/weights_0_10.model --train_file data/train.json --result_folder exps/temp/ --batch_size 16 --nb_rollouts 100 --nb_epochs 100 --use_cuda --intermediate
+
+python3 main.py  --signal rl --learning_rate 1e-5 --init_weights exps_CD_with_intergrids_expanding_RL2/Weights/weights_0_10.model --train_file data/train.json --result_folder exps_CD_with_intergrids_expanding_RL2/iterate_2_reloaded/ --batch_size 16 --nb_rollouts 100 --nb_epochs 100 --use_cuda --intermediate
+
+python3 main.py  --signal rl --learning_rate 1e-5 --init_weights exps_CD_with_intergrids_expanding_RL2/iterate_2_reloaded/Weights/weights_1_70.model --train_file data/train.json --result_folder exps_CD_with_intergrids_expanding_RL2/iterate_3_reloaded70/ --batch_size 16 --nb_rollouts 100 --nb_epochs 100 --use_cuda --intermediate
+
 RM from scratch:
  python3 main.py  --signal rl --learning_rate 1e-5 --train_file data/train.json --result_folder exps_RMfromscratch/reinforce/ --batch_size 16 --nb_rollouts 500 --nb_epochs 5  --use_cuda --intermediate
+
