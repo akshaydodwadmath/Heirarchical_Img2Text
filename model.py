@@ -107,7 +107,7 @@ class MultiIOProgramDecoder(nn.Module):
         
     
     def forward(self, tgt_inp_sequences, io_embeddings,
-                list_inp_sequences,
+                list_inp_sequences, no_grad,
                 initial_state=None,
                 grammar_state=None):
         '''
@@ -153,6 +153,10 @@ class MultiIOProgramDecoder(nn.Module):
             initial_state[0].view(self.nb_layers, batch_size*nb_ios, self.lstm_hidden_size),
             initial_state[1].view(self.nb_layers, batch_size*nb_ios, self.lstm_hidden_size)
         )
+        if(no_grad):
+            initial_state[0].detach()
+            initial_state[1].detach()
+
         # initial_state: 2-Tuple of (nb_layers x batch_size*nb_ios x embedding_dim)
 
         # Pass through the LSTM
@@ -227,6 +231,7 @@ class MultiIOProgramDecoder(nn.Module):
             dec_outs, dec_state, \
             batch_grammar_state, _ = self.forward(batch_inputs,
                                                   batch_io_embeddings,
+                                                  False,
                                                   batch_list_inputs,
                                                   batch_state,
                                                   batch_grammar_state)
@@ -432,13 +437,19 @@ class MultiIOProgramDecoder(nn.Module):
         curr_batch_size = batch_size
         batch_state = final_batch_state
         
+        stp_no_grad =  { 5 : 0, 12 : 5, 15 : 12 }
+           
         #for stp in range(max_len):
         for stp in range(max_len):
+            no_grad = False
+            if (stp < stp_no_grad[max_len]):
+                no_grad = True
             # Do the forward of one time step, for all our traces to expand
             dec_outs, dec_state, \
             _, _ = self.forward(batch_inputs,
                                                   batch_io_embeddings,
                                                   batch_list_inputs,
+                                                  no_grad,
                                                   batch_state,
                                                   batch_grammar_state)
             # dec_outs: curr_batch x 1 x nb_out_word
