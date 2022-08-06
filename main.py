@@ -242,67 +242,68 @@ optimizer = optimizer_cls(model.parameters(),
 #####################
 
 losses = []
-recent_losses = []
+recent_losses1 = []
+recent_losses2 = []
+recent_losses3 = []
 best_val_acc = np.NINF
 batch_size = args.batch_size
 env = args.environment
 
-for iterate in range(0,3):
-
-    for epoch_idx in range(0, args.nb_epochs):
-        nb_ios_for_epoch = args.nb_ios
-        # This is definitely not the most efficient way to do it but oh well
-        dataset = shuffle_dataset(dataset, batch_size)
-        for sp_idx in tqdm(range(0, len(dataset["sources"]), batch_size)):
-
-        #for sp_idx in tqdm(range(0, 1, batch_size)):
 
 
-            batch_idx = int(sp_idx/batch_size)
-            optimizer.zero_grad()
+for epoch_idx in range(0, args.nb_epochs):
+    nb_ios_for_epoch = args.nb_ios
+    # This is definitely not the most efficient way to do it but oh well
+    dataset = shuffle_dataset(dataset, batch_size)
+    for sp_idx in tqdm(range(0, len(dataset["sources"]), batch_size)):
 
-            if signal == TrainSignal.SUPERVISED:
+    #for sp_idx in tqdm(range(0, 1, batch_size)):
+        
+
+        batch_idx = int(sp_idx/batch_size)
+        optimizer.zero_grad()
+
+        if signal == TrainSignal.SUPERVISED:
+            inp_grids, out_grids, \
+                in_tgt_seq, in_tgt_seq_list, out_tgt_seq, \
+                _, _, _, _, _ = get_minibatch(dataset, sp_idx, batch_size,
+                                            tgt_start, tgt_end, tgt_pad,
+                                            nb_ios_for_epoch, simulator, args.intermediate)
+            #TODO
+            if args.use_cuda:
+                inp_grids, out_grids = inp_grids.cuda(), out_grids.cuda()
+                in_tgt_seq, out_tgt_seq = in_tgt_seq.cuda(), out_tgt_seq.cuda()
+            # if learn_syntax:
+                # minibatch_loss = do_syntax_weighted_minibatch(model,
+                                                            # inp_grids, out_grids,
+                                                            # in_tgt_seq, in_tgt_seq_list,
+                                                            # out_tgt_seq,
+                                                            # loss_criterion, beta)
+            # else:
+            minibatch_loss = do_supervised_minibatch(model,
+                                                    inp_grids, out_grids,
+                                                    in_tgt_seq, in_tgt_seq_list,
+                                                    out_tgt_seq, loss_criterion)
+            recent_losses.append(minibatch_loss)
+            
+            
+            
+        elif signal == TrainSignal.RL or signal == TrainSignal.BEAM_RL:
                 inp_grids, out_grids, \
-                    in_tgt_seq, in_tgt_seq_list, out_tgt_seq, \
-                    _, _, _, _, _ = get_minibatch(dataset, sp_idx, batch_size,
-                                                tgt_start, tgt_end, tgt_pad,
-                                                nb_ios_for_epoch, simulator, args.intermediate)
-                #TODO
-                if args.use_cuda:
-                    inp_grids, out_grids = inp_grids.cuda(), out_grids.cuda()
-                    in_tgt_seq, out_tgt_seq = in_tgt_seq.cuda(), out_tgt_seq.cuda()
-                # if learn_syntax:
-                    # minibatch_loss = do_syntax_weighted_minibatch(model,
-                                                                # inp_grids, out_grids,
-                                                                # in_tgt_seq, in_tgt_seq_list,
-                                                                # out_tgt_seq,
-                                                                # loss_criterion, beta)
-                # else:
-                minibatch_loss = do_supervised_minibatch(model,
-                                                        inp_grids, out_grids,
-                                                        in_tgt_seq, in_tgt_seq_list,
-                                                        out_tgt_seq, loss_criterion)
-                recent_losses.append(minibatch_loss)
-                
-                
-                
-            elif signal == TrainSignal.RL or signal == TrainSignal.BEAM_RL:
-                    inp_grids, out_grids, \
-
-                        inter_grids_1, inter_grids_2, \
-                        _, _, _, \
-                        inp_worlds, out_worlds, \
-                        inter_worlds_1, inter_worlds_2, \
-                        targets, \
-                        inp_test_worlds, out_test_worlds, \
-                        inter_test_worlds_1, inter_test_worlds_2, \
-                            target_subprog1, target_subprog2, \
-                                target_subprog3, \
-                                    input_subprog1,input_subprog2 = get_minibatch(dataset, sp_idx, batch_size,
-                                                                        tgt_start, tgt_end, tgt_pad,
-                                                                        nb_ios_for_epoch, simulator, args.intermediate)
-                            
-                            
+                    inter_grids_1, inter_grids_2, \
+                    _, _, _, \
+                    inp_worlds, out_worlds, \
+                    inter_worlds_1, inter_worlds_2, \
+                    targets, \
+                    inp_test_worlds, out_test_worlds, \
+                    inter_test_worlds_1, inter_test_worlds_2, \
+                        target_subprog1, target_subprog2, \
+                            target_subprog3, \
+                                input_subprog1,input_subprog2 = get_minibatch(dataset, sp_idx, batch_size,
+                                                                    tgt_start, tgt_end, tgt_pad,
+                                                                    nb_ios_for_epoch, simulator, args.intermediate)
+                        
+                for iterate in range(0,3):        
                     if(iterate == 0):
                         temp_tgt = target_subprog1
                     elif(iterate == 1):
@@ -327,7 +328,7 @@ for iterate in range(0,3):
                                 for trg_prog, sp_inp_worlds, sp_out_worlds, sp_inter_worlds_1 , sp_inter_worlds_2 
                                 in zip(temp_tgt, inp_worlds, out_worlds, inter_worlds_1, inter_worlds_2)]
                     elif "Generalization" in env:
-                       
+                        
 
                         envs = [env_cls(reward_norm, trg_prog, sp_inp_test_worlds, sp_out_test_worlds, sp_inter_test_worlds_1, sp_inter_test_worlds_2, iterate, simulator )
                                 for trg_prog, sp_inp_test_worlds, sp_out_test_worlds, sp_inter_test_worlds_1, sp_inter_test_worlds_2
@@ -340,29 +341,29 @@ for iterate in range(0,3):
                         lens = [len(temp) for temp in temp_tgt]
                         max_len = max(lens) + 10
                         batch_list_inputs = [[tgt_start]]*len(targets)
-                       
+                        
                         
                         
                         if(iterate == 0):
                         #    batch_list_inputs = [[tgt_start]]*len(targets)
                             max_len = 5
-                            minibatch_reward = do_rl_minibatch(model,
+                            minibatch_reward1 = do_rl_minibatch(model,
                                                         inp_grids, out_grids,
                                                         envs,
                                                         batch_list_inputs, tgt_end, max_len,
                                                         args.nb_rollouts, iterate)
                         elif(iterate == 1):
-                           # batch_list_inputs = input_subprog1
-                            max_len = 12
-                            minibatch_reward = do_rl_minibatch(model,
+                            batch_list_inputs = input_subprog1
+                            max_len = 7
+                            minibatch_reward2 = do_rl_minibatch(model,
                                                         inp_grids, out_grids,
                                                         envs,
                                                         batch_list_inputs, tgt_end, max_len,
                                                         args.nb_rollouts, iterate)
                         else:
-                            # batch_list_inputs = input_subprog2
-                            max_len = 15
-                            minibatch_reward = do_rl_minibatch(model,
+                            batch_list_inputs = input_subprog2
+                            max_len = 3
+                            minibatch_reward3 = do_rl_minibatch(model,
                                                         inp_grids, out_grids,
                                                         envs,
                                                         batch_list_inputs, tgt_end, max_len,
@@ -378,10 +379,10 @@ for iterate in range(0,3):
                                                     
                     elif signal == TrainSignal.BEAM_RL:
                         
-                       
+                        
                         lens = [len(temp) for temp in temp_tgt]
                         max_len = max(lens) + 10
-                       
+                        
                         
                         if(iterate == 0):
                             minibatch_reward = do_beam_rl(model,
@@ -391,7 +392,7 @@ for iterate in range(0,3):
                                                         max_len, args.rl_beam, args.rl_inner_batch, args.rl_use_ref,
                                                         iterate)
                         elif(iterate == 1):
-                           
+                            
                             minibatch_reward = do_beam_rl(model,
                                                         inp_grids, inter_grids_2, temp_tgt,
                                                         envs, reward_comb_fun,
@@ -408,69 +409,72 @@ for iterate in range(0,3):
                 
                     else:
                         raise NotImplementedError("Unknown Environment type")
-                                                     
-                    recent_losses.append(minibatch_reward)
-            
-            else:
-                    raise NotImplementedError("Unknown Training method")
-                    
-                    
-            optimizer.step()
-            
-            if (batch_idx % args.log_frequency == args.log_frequency-1 and len(recent_losses) > 0) or \
-            (len(dataset["sources"]) - sp_idx ) < batch_size:
+                                                    
+                recent_losses1.append(minibatch_reward1)
+                recent_losses2.append(minibatch_reward2)
+                recent_losses3.append(minibatch_reward3)
+        
+        else:
+                raise NotImplementedError("Unknown Training method")
+                      
+        optimizer.step()
+        
+        if (batch_idx % args.log_frequency == args.log_frequency-1 and len(recent_losses2) > 0) or \
+        (len(dataset["sources"]) - sp_idx ) < batch_size:
 
-                logging.info('iterate : %d Epoch : %d Minibatch : %d Loss : %.5f' % (
-                    iterate, epoch_idx, batch_idx, sum(recent_losses)/len(recent_losses))
+            logging.info('iterate : %d Epoch : %d Minibatch : %d Loss : %.5f' % (
+                iterate, epoch_idx, batch_idx, sum(recent_losses1)/len(recent_losses1), sum(recent_losses2)/len(recent_losses2),sum(recent_losses3)/len(recent_losses3)) 
 
-                )
-                losses.extend(recent_losses)
-                recent_losses = []
-                # Dump the training losses
-                with open(str(train_loss_path), "w") as train_loss_file:
-                    json.dump(losses, train_loss_file, indent=2)
+            )
+            losses.extend(recent_losses2)
+            recent_losses1 = []
+            recent_losses2 = []
+            recent_losses3 = []
+            # Dump the training losses
+            with open(str(train_loss_path), "w") as train_loss_file:
+                json.dump(losses, train_loss_file, indent=2)
                 
             
-        # Dump the weights at the end of the epoch
-        if(epoch_idx % 5 == 0):
-            path_to_weight_dump = models_dir / ("weights_%d_%d.model" % (iterate,epoch_idx))
-            with open(str(path_to_weight_dump), "wb") as weight_file:
-                # Needs to be in cpu mode to dump, otherwise will be annoying to load
-                if args.use_cuda:
-                    model.cpu()
-                torch.save(model, weight_file)
-                if args.use_cuda:
-                    model.cuda()
-        #previous_weight_dump = models_dir / ("weights_%d_.model" % (epoch_idx-1))
+    # Dump the weights at the end of the epoch
+    if(epoch_idx % 5 == 0):
+        path_to_weight_dump = models_dir / ("weights_%d_%d.model" % (iterate,epoch_idx))
+        with open(str(path_to_weight_dump), "wb") as weight_file:
+            # Needs to be in cpu mode to dump, otherwise will be annoying to load
+            if args.use_cuda:
+                model.cpu()
+            torch.save(model, weight_file)
+            if args.use_cuda:
+                model.cuda()
+    #previous_weight_dump = models_dir / ("weights_%d_.model" % (epoch_idx-1))
 
-        #if previous_weight_dump.exists():
-            #os.remove(str(previous_weight_dump))
-        # Dump the training losses
-        with open(str(train_loss_path), "w") as train_loss_file:
-            json.dump(losses, train_loss_file, indent=2)
+    #if previous_weight_dump.exists():
+        #os.remove(str(previous_weight_dump))
+    # Dump the training losses
+    with open(str(train_loss_path), "w") as train_loss_file:
+        json.dump(losses, train_loss_file, indent=2)
 
-        logging.info("Done with epoch %d." % epoch_idx)
+    logging.info("Done with epoch %d." % epoch_idx)
         
-        if (minibatch_reward > 10):
-            print("break")
-            break
+        #if (minibatch_reward > 10):
+            #print("break")
+            #break
        
-        if (epoch_idx+1) % args.val_frequency == 0 or (epoch_idx+1) == args.nb_epochs:
-            # Evaluate the model on the validation set
-            out_path = str(result_dir / ("eval/epoch_%d/val_.txt" % epoch_idx))
-            val_acc = evaluate_model(str(path_to_weight_dump), args.vocab,
-                                    args.val_file, 5, 0, use_grammar,
-                                    out_path, 100, 50, batch_size,
-                                    args.use_cuda, args.intermediate, False)
-            logging.info("Epoch : %d ValidationAccuracy : %f." % (epoch_idx, val_acc))
-            if val_acc > best_val_acc:
-                logging.info("Epoch : %d ValidationBest : %f." % (epoch_idx, val_acc))
-                best_val_acc = val_acc
-                path_to_weight_dump = models_dir / "best.model"
-                with open(str(path_to_weight_dump), "wb") as weight_file:
-                    # Needs to be in cpu mode to dump, otherwise will be annoying to load
-                    if args.use_cuda:
-                        model.cpu()
-                    torch.save(model, weight_file)
-                    if args.use_cuda:
-                        model.cuda()
+        #if (epoch_idx+1) % args.val_frequency == 0 or (epoch_idx+1) == args.nb_epochs:
+            ## Evaluate the model on the validation set
+            #out_path = str(result_dir / ("eval/epoch_%d/val_.txt" % epoch_idx))
+            #val_acc = evaluate_model(str(path_to_weight_dump), args.vocab,
+                                    #args.val_file, 5, 0, use_grammar,
+                                    #out_path, 100, 50, batch_size,
+                                    #args.use_cuda, args.intermediate, False)
+            #logging.info("Epoch : %d ValidationAccuracy : %f." % (epoch_idx, val_acc))
+            #if val_acc > best_val_acc:
+                #logging.info("Epoch : %d ValidationBest : %f." % (epoch_idx, val_acc))
+                #best_val_acc = val_acc
+                #path_to_weight_dump = models_dir / "best.model"
+                #with open(str(path_to_weight_dump), "wb") as weight_file:
+                    ## Needs to be in cpu mode to dump, otherwise will be annoying to load
+                    #if args.use_cuda:
+                        #model.cpu()
+                    #torch.save(model, weight_file)
+                    #if args.use_cuda:
+                        #model.cuda()

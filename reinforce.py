@@ -220,15 +220,15 @@ class MultiIOGrid(Environment):
             return 0
         
         rew = 0
-    
-     #   print("prev trace", trace)
+      #  print("rm state", rm_state)
+      #  print("prev trace", trace)
         if(rm_state == 0):
             trace = trace + [21]
         elif(rm_state == 1):
-            trace = [3,4,20] + trace[5:] + [21]
+            trace = [3,4,20] + trace + [21]
         else:
-            trace = [3,4,20] + trace[12:]
-     #   print("trace", trace)
+            trace = [3,4,20] + trace
+      #  print("trace", trace)
        
         parse_success, cand_prog = self.simulator.get_prog_ast(trace)
 

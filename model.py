@@ -449,12 +449,13 @@ class MultiIOProgramDecoder(nn.Module):
         prev_parent = Variable(tt.LongTensor(prev_parent), requires_grad=False)
 
         for i in range(1, (max(map(len,batch_list_inputs_passed)))):
-            
+            no_grad = True
             # Do the forward of one time step, for all our traces to expand
             dec_outs, dec_state, \
             _, _ = self.forward(batch_inputs,
                                                 batch_io_embeddings,
                                                 batch_list_inputs,
+                                                no_grad,
                                                 batch_state,
                                                 batch_grammar_state)
             
@@ -502,13 +503,13 @@ class MultiIOProgramDecoder(nn.Module):
         curr_batch_size = batch_size
         batch_state = final_batch_state
         
-        stp_no_grad =  { 5 : 0, 12 : 5, 15 : 12 }
+      #  stp_no_grad =  { 5 : 0, 12 : 5, 15 : 12 }
            
         #for stp in range(max_len):
         for stp in range(max_len):
             no_grad = False
-            if (stp < stp_no_grad[max_len]):
-                no_grad = True
+            #if (stp < stp_no_grad[max_len]):
+                #no_grad = True
             # Do the forward of one time step, for all our traces to expand
             dec_outs, dec_state, \
             _, _ = self.forward(batch_inputs,
