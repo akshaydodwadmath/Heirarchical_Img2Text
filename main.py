@@ -422,7 +422,7 @@ for epoch_idx in range(0, args.nb_epochs):
         if (batch_idx % args.log_frequency == args.log_frequency-1 and len(recent_losses2) > 0) or \
         (len(dataset["sources"]) - sp_idx ) < batch_size:
 
-            logging.info('iterate : %d Epoch : %d Minibatch : %d Loss : %.5f' % (
+            logging.info('iterate : %d Epoch : %d Minibatch : %d Loss1 : %.5f Loss2 : %.5f Loss3 : %.5f' % (
                 iterate, epoch_idx, batch_idx, sum(recent_losses1)/len(recent_losses1), sum(recent_losses2)/len(recent_losses2),sum(recent_losses3)/len(recent_losses3)) 
 
             )
