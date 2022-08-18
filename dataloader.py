@@ -170,7 +170,7 @@ def load_input_file_orig(path_to_dataset, path_to_vocab):
                 tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
                 current_ios = []
                 
-                rules = [(len(tgt_program_tkn) < 18), (tgt_program_tkn[3] in actions), \
+                rules = [(len(tgt_program_tkn) == 15), (tgt_program_tkn[3] in actions), \
                 (tgt_program_tkn[4] in actions) , (tgt_program_tkn[5] in commands), \
                 (tgt_program_tkn[-2] in actions), (tgt_program_tkn[-3] in actions)]
                 
