@@ -35,6 +35,7 @@ class EmuResult(object):
         self.outgrid = outgrid
         self.ticks = ticks
         self.actions = actions
+    #    print("action", self.actions)
         self.crashed = False
 
 class FastEmuException(BaseException):
