@@ -6,7 +6,7 @@ file1 = open('test.json', 'r')
 Lines = file1.readlines()
 x = 0
 logs_enabled = False
-
+file_to_write = open("generate.txt", "w")
 def get_first_common_element(branch, main , b_passed_index, m_passed_index):
     b_index = b_passed_index
     m_index = m_passed_index
@@ -58,7 +58,7 @@ def get_first_common_element(branch, main , b_passed_index, m_passed_index):
     #    return y_value, y_index, "x"
 
 
-def write_program(actions_all_samples):
+def write_program(actions_all_samples, prog_num):
     token_beg = ["DEF", "run", "m("] 
     token_end = ["m)"]
     
@@ -176,10 +176,88 @@ def write_program(actions_all_samples):
                     # for i in range(index, m_index):
                         # list_full.append([main_list[i], branch_list[i]])
                     # index = m_index
-        print("list_full", list_full)
+        
+        print("list_full", (list_full))
             
-              
+            
+        
+        
+        p_index = 0
+        while((p_index < len(list_full))):
+            
+            if isinstance(list_full[p_index], list):
                 
+                if( list_full[p_index][1] == "NULL"):
+                    if_beg = "IF", "c(", "TODO" ,"c)", "i("
+                    if_end = ["i)"]
+                    
+                    prog += if_beg
+                    
+                    while( isinstance(list_full[p_index], list)):
+                        prog.append(list_full[p_index][0])
+                        p_index +=1
+                        if (p_index == len(list_full)):
+                            break
+                    prog += (if_end)
+                    
+                    
+                elif( list_full[p_index][0] == "NULL"):
+                    if_beg = "IF", "c(", "TODO" ,"c)", "i("
+                    if_end = ["i)"]
+                    
+                    prog += if_beg
+                    
+                    while( isinstance(list_full[p_index], list)):
+                        prog.append(list_full[p_index][1])
+                        p_index +=1        
+                        if (p_index == len(list_full)):
+                            break
+                        
+                    prog += (if_end)
+                    
+                else:
+                    if_beg = "IFELSE", "c(", "TODO" ,"c)", "i("
+                    if_end = ["i)"]
+                    
+                    prog += if_beg
+                    
+                    temp_index = p_index
+                    while( isinstance(list_full[temp_index], list)):
+                        if(list_full[temp_index][0] != "NULL"):
+                            prog.append(list_full[temp_index][0])
+                        temp_index +=1
+                        if (temp_index == len(list_full)):
+                            break
+                    prog += (if_end)
+
+                    else_beg = "ELSE", "e("
+                    else_end = ["e)"]
+                    prog += else_beg
+                    
+                  #  temp_index = p_index
+                    while( isinstance(list_full[p_index], list)):
+                        if(list_full[p_index][1] != "NULL"):
+                            prog.append(list_full[p_index][1])
+                        p_index +=1
+                        if (p_index == len(list_full)):
+                            break
+                    prog += (else_end)
+                            
+                            
+                
+            else:
+                prog.append(list_full[p_index] )
+                p_index+=1
+              
+        prog += (token_end)
+        
+        file_to_write.write("\n" + '#' + str(prog_num))
+        file_to_write.write("\n" + "tgt_program_tkn = ")
+        file_to_write.write("['" + "', '".join(prog) + "']")
+        file_to_write.write("\n" +"tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)")
+        file_to_write.write("\n" +  "pred_list.append(tgt_program_idces)")
+        
+        print("PROG", prog)
         
         
     # if(number_of_traces == 2):
@@ -215,11 +293,11 @@ def write_program(actions_all_samples):
                         # print("these indices to add", j)
                   # #  print("intermediate", actions_all_samples[0])
                 
-         #   print("index", index)
-        list1 = actions_all_samples[0]
-        list2 = actions_all_samples[1]
-        # prints the missing and additional elements in list2 
-        index = 0
+         # #   print("index", index)
+        # list1 = actions_all_samples[0]
+        # list2 = actions_all_samples[1]
+        # # prints the missing and additional elements in list2 
+        # index = 0
         
      #   print("full", actions_all_samples)
      #   print("list1", actions_all_samples[0])
@@ -248,9 +326,9 @@ def write_program(actions_all_samples):
     #print("main_list", main_list)
         
         
-    prog += (token_end)
+    
  #   print("prog", prog)
-        
+
 actions_per_sample = []
 action_per_io = []
 actions_all_samples = []
@@ -281,15 +359,15 @@ for line in Lines:
     actions_all_samples.append(actions_per_sample)
     x += 1
     print(x)
-    if( x>150):
-        write_program(actions_per_sample)
+    if( x>0):
+        write_program(actions_per_sample, x)
     number_of_traces = len(actions_per_sample)
     count[number_of_traces-1] += 1
     
     actions_per_sample = []
    
     
-    if(x == 201):
+    if(x == 101):
         break
 # for action in actions_per_sample:
     # print(action)
