@@ -5,7 +5,7 @@ import math
 file1 = open('test.json', 'r')
 Lines = file1.readlines()
 x = 0
-logs_enabled = True
+logs_enabled = False
 
 def get_first_common_element(branch, main , b_passed_index, m_passed_index):
     b_index = b_passed_index
@@ -13,20 +13,21 @@ def get_first_common_element(branch, main , b_passed_index, m_passed_index):
     m_value = ""
     second_token_match = False
     for m_element in main[m_passed_index:]:
-        b_index = m_passed_index
-        for b_element in branch[m_passed_index:]:
+        b_index = b_passed_index
+        for b_element in branch[b_passed_index:]:
             
             if (b_element == m_element):
                 if(logs_enabled):
                     print("equal", b_element)
                 m_value = b_element
-                if (main[main[m_passed_index:].index(m_element)+1] == branch[branch[m_passed_index:].index(b_element)+1]):
-                    second_token_match = True
+                if((m_index < len(main)-1) and (b_index < len(branch)-1)):
+                    if (main[m_index+1] == branch[b_index+1]):
+                        second_token_match = True
                 return m_value, b_index, m_index, second_token_match
             b_index += 1
         m_index+=1
         if(logs_enabled):
-            print("m_index", m_index)
+            print("m_index in func", m_index)
         
     return m_value, b_index, m_index, second_token_match
 
@@ -101,7 +102,7 @@ def write_program(actions_all_samples):
         while((m_index <= (maxLength-1))):
        # while((temp_index<10) and ((m_index <= (maxLength-1)))):
             temp_index+=1
-            if(b_index == (minLength-1)):
+            if(b_index == (minLength)):
                 print("m_index", m_index)
                 list_full.append([main_list[m_index], "NULL"])
                 m_index +=1
@@ -126,12 +127,22 @@ def write_program(actions_all_samples):
                         print("m_value, m_ret_index, b_ret_index", m_value, m_ret_index, b_ret_index)
                     
                     
-                    if(m_index > b_index):
-                        for i in range(b_index, b_ret_index):
-                            list_full.append(["NULL", branch_list[i]])
-                            b_index +=1
+                    # if(m_index > b_index):
+                        # for i in range(b_index, b_ret_index):
+                            # list_full.append(["NULL", branch_list[i]])
+                            # b_index +=1
+                            
+                    if ((b_ret_index > b_index) and (m_ret_index == m_index)):
+                            for i in range(b_index, b_ret_index):
+                                list_full.append(["NULL", branch_list[i]])
+                                b_index +=1
+                                
+                    elif ((m_ret_index > m_index) and (b_ret_index == b_index)):
+                            for i in range(m_index, m_ret_index):
+                                list_full.append([main_list[i], "NULL"])
+                                m_index +=1
                         
-                    if(m_ret_index == b_ret_index):
+                    elif(m_ret_index == b_ret_index):
                         for i in range(m_index, m_ret_index):
                             list_full.append([main_list[i], branch_list[i]])
                             m_index +=1
@@ -139,22 +150,24 @@ def write_program(actions_all_samples):
                     
                     
                     elif(m_ret_index > b_ret_index):
+                       
                         for i in range(m_index, b_ret_index):
                             list_full.append([main_list[i], branch_list[i]])
                             m_index +=1
                             b_index +=1
-                        for i in range(b_ret_index, m_ret_index):
-                            list_full.append([main_list[i], "NULL"])
-                            m_index +=1
+                        #if(m_ret_index > m_index):
+                        # for i in range(b_ret_index, m_ret_index):
+                            # list_full.append([main_list[i], "NULL"])
+                            # m_index +=1
                             
                     else:
                         for i in range(m_index, m_ret_index):
                             list_full.append([main_list[i], branch_list[i]])
                             m_index +=1
                             b_index +=1
-                        for i in range(m_ret_index, b_ret_index):
-                            list_full.append(["NULL", branch_list[i]])
-                            b_index +=1
+                        # for i in range(m_ret_index, b_ret_index):
+                            # list_full.append(["NULL", branch_list[i]])
+                            # b_index +=1
                             
                     
                 
@@ -268,7 +281,7 @@ for line in Lines:
     actions_all_samples.append(actions_per_sample)
     x += 1
     print(x)
-    if( x>73):
+    if( x>150):
         write_program(actions_per_sample)
     number_of_traces = len(actions_per_sample)
     count[number_of_traces-1] += 1
@@ -276,7 +289,7 @@ for line in Lines:
     actions_per_sample = []
    
     
-    if(x == 75):
+    if(x == 201):
         break
 # for action in actions_per_sample:
     # print(action)
