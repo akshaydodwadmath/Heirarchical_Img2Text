@@ -6,7 +6,7 @@ file1 = open('test.json', 'r')
 Lines = file1.readlines()
 x = 0
 logs_enabled = False
-file_to_write = open("generate.txt", "w")
+file_to_write = open("generate_round2.txt", "w")
 def get_first_common_element(branch, main , b_passed_index, m_passed_index):
     b_index = b_passed_index
     m_index = m_passed_index
@@ -31,6 +31,20 @@ def get_first_common_element(branch, main , b_passed_index, m_passed_index):
         
     return m_value, b_index, m_index, second_token_match
 
+def guess_seq_len(seq):
+    guess = 0
+    max_len = int(len(seq) / 2)
+    for x in range(1, max_len+1):
+        mult = 1
+        flag = True
+        while((mult * x) < len(seq)):
+            if seq[0: mult* x] != seq[x:(mult+1)*x] :
+                flag = False
+            mult +=1
+        if(flag is True):
+            return x
+
+    return guess
 # def get_first_common_element(x,y, index):
     # ''' Fetches first element from x that is common for both lists
         # or return None if no such an element is found.
@@ -191,14 +205,49 @@ def write_program(actions_all_samples, prog_num):
                     if_beg = "IF", "c(", "TODO" ,"c)", "i("
                     if_end = ["i)"]
                     
-                    prog += if_beg
+                    while_beg = "WHILE", "c(", "TODO" ,"c)", "w("
+                    while_end = ["w)"]
+                    sub_prog = []
                     
                     while( isinstance(list_full[p_index], list)):
-                        prog.append(list_full[p_index][0])
+                    
+                        sub_prog.append(list_full[p_index][0])
+                       # prog.append(list_full[p_index][0])
                         p_index +=1
                         if (p_index == len(list_full)):
                             break
-                    prog += (if_end)
+                    
+                    temp = guess_seq_len(sub_prog)
+                    if (temp!= 0):
+                        len_at_while_beg = len(prog)
+                        prog += while_beg
+                        prog += sub_prog[:temp]
+                        prog += (while_end)
+                        len_at_while_end = len(prog)
+                        
+                        
+                        while( (len_at_while_beg)-temp  > 2):
+                            if(prog[(len_at_while_beg)-temp : (len_at_while_beg)] == sub_prog[:temp]):
+                                del prog[(len_at_while_beg)-temp : (len_at_while_beg)] 
+                                len_at_while_beg -=temp
+                                len_at_while_end -=temp
+                            else:
+                                break
+                                
+                        # while( (len_at_while_end)+temp  < len(prog)):
+                            # if(prog[(len_at_while_beg)-temp : (len_at_while_beg)] == sub_prog[:temp]):
+                                # del prog[(len_at_while_beg)-temp : (len_at_while_beg)] 
+                                # len_at_while_beg -=temp
+                                # len_at_while_end -=temp
+                            # else:
+                                # break
+                        
+                    else:
+                    
+                    
+                        prog += if_beg
+                        prog += sub_prog
+                        prog += (if_end)
                     
                     
                 elif( list_full[p_index][0] == "NULL"):

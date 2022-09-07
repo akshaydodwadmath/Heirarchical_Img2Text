@@ -139,7 +139,7 @@ def evaluate_model(model_weights,
     tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
     pred_list.append(tgt_program_idces)
     #4
-    tgt_program_tkn = ['DEF', 'run', 'm(', 'pickMarker', 'turnRight', 'turnRight', 'turnRight', 'turnRight', 'turnRight', 'putMarker', 'turnRight', 'pickMarker', 'pickMarker', 'pickMarker', 'pickMarker', 'turnRight', 'move', 'IF', 'c(', "not", "c(", "frontIsClear", "c)", 'c)', 'i(', 'turnRight', 'move', 'turnRight', 'move', 'i)', 'm)']
+    tgt_program_tkn = ['DEF', 'run', 'm(', 'pickMarker', 'turnRight', 'turnRight', 'turnRight', 'turnRight', 'turnRight', 'putMarker', 'turnRight', 'pickMarker', 'pickMarker', 'pickMarker', 'pickMarker', 'WHILE', 'c(', "not", "c(", "frontIsClear", "c)", 'c)', 'w(', 'turnRight', 'move', 'w)', 'm)']
     tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
     pred_list.append(tgt_program_idces)
     #5
@@ -147,7 +147,7 @@ def evaluate_model(model_weights,
     tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
     pred_list.append(tgt_program_idces)
     #6
-    tgt_program_tkn = ['DEF', 'run', 'm(', 'move', 'putMarker', 'move', 'putMarker', 'move', 'putMarker', 'IF', 'c(', 'frontIsClear', 'c)', 'i(', 'move', 'putMarker', 'move', 'putMarker', 'i)', 'turnRight', 'm)']
+    tgt_program_tkn = ['DEF', 'run', 'm(',  'WHILE', 'c(', 'frontIsClear', 'c)', 'w(', 'move', 'putMarker',  'w)', 'turnRight', 'm)']
     tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
     pred_list.append(tgt_program_idces)
     #7
@@ -159,11 +159,11 @@ def evaluate_model(model_weights,
     tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
     pred_list.append(tgt_program_idces)
     #9
-    tgt_program_tkn = ['DEF', 'run', 'm(', 'move', 'pickMarker', 'IF', 'c(', 'noMarkersPresent', 'c)', 'i(', 'move', 'move', 'move', 'move', 'move', 'move', 'i)', 'm)']
+    tgt_program_tkn = ['DEF', 'run', 'm(', 'move', 'pickMarker', 'WHILE', 'c(', 'noMarkersPresent', 'c)', 'w(', 'move', 'w)', 'm)']
     tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
     pred_list.append(tgt_program_idces)
     #10
-    tgt_program_tkn = ['DEF', 'run', 'm(', 'putMarker', 'IF', 'c(', 'leftIsClear', 'c)', 'i(', 'move', 'move', 'move', 'i)', 'putMarker', 'move', 'putMarker', 'm)']
+    tgt_program_tkn = ['DEF', 'run', 'm(', 'putMarker', 'WHILE', 'c(', 'leftIsClear', 'c)', 'w(', 'move', 'w)', 'putMarker', 'move', 'putMarker', 'm)']
     tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
     pred_list.append(tgt_program_idces)
     #11
@@ -184,7 +184,7 @@ def evaluate_model(model_weights,
     tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
     pred_list.append(tgt_program_idces)
     #15
-    tgt_program_tkn = ['DEF', 'run', 'm(', 'move', 'IF', 'c(', 'frontIsClear', 'c)', 'i(', 'move', 'move', 'i)', 'pickMarker', 'm)']
+    tgt_program_tkn = ['DEF', 'run', 'm(', 'move', 'WHILE', 'c(', 'frontIsClear', 'c)', 'w(', 'move', 'w)', 'pickMarker', 'm)']
     tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
     pred_list.append(tgt_program_idces)
     #16
@@ -228,7 +228,7 @@ def evaluate_model(model_weights,
     tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
     pred_list.append(tgt_program_idces)
     #26
-    tgt_program_tkn = ['DEF', 'run', 'm(', 'pickMarker', 'pickMarker', 'turnLeft', 'move', 'move', 'IF', 'c(', 'leftIsClear', 'c)', 'i(', 'turnLeft', 'turnLeft', 'i)', 'putMarker', 'm)']
+    tgt_program_tkn = ['DEF', 'run', 'm(', 'pickMarker', 'pickMarker', 'turnLeft', 'move', 'move', 'WHILE', 'c(', 'leftIsClear', 'c)', 'w(', 'turnLeft', 'w)', 'putMarker', 'm)']
     tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
     pred_list.append(tgt_program_idces)
         
