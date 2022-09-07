@@ -1,0 +1,105 @@
+
+#2
+tgt_program_tkn = ['DEF', 'run', 'm(', 'move', 'turnRight', 'IFELSE', 'c(', 'TODO', 'c)', 'i(', 'putMarker', 'i)', 'ELSE', 'e(', 'pickMarker', 'e)', 'move', 'IF', 'c(', 'TODO', 'c)', 'i(', 'pickMarker', 'pickMarker', 'move', 'i)', 'm)']
+tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
+pred_list.append(tgt_program_idces)
+#5
+tgt_program_tkn = ['DEF', 'run', 'm(', 'pickMarker', 'IF', 'c(', 'TODO', 'c)', 'i(', 'move', 'i)', 'putMarker', 'IF', 'c(', 'TODO', 'c)', 'i(', 'putMarker', 'i)', 'move', 'm)']
+tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
+pred_list.append(tgt_program_idces)
+#9
+tgt_program_tkn = ['DEF', 'run', 'm(', 'putMarker', 'move', 'putMarker', 'move', 'putMarker', 'move', 'putMarker', 'move', 'putMarker', 'IFELSE', 'c(', 'TODO', 'c)', 'i(', 'turnRight', 'turnRight', 'turnRight', 'turnRight', 'turnRight', 'i)', 'ELSE', 'e(', 'move', 'e)', 'm)']
+tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
+pred_list.append(tgt_program_idces)
+#14
+tgt_program_tkn = ['DEF', 'run', 'm(', 'pickMarker', 'turnRight', 'turnRight', 'turnRight', 'turnRight', 'turnRight', 'putMarker', 'turnRight', 'pickMarker', 'pickMarker', 'pickMarker', 'pickMarker', 'WHILE', 'c(', 'TODO', 'c)', 'w(', 'turnRight', 'move', 'w)', 'm)']
+tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
+pred_list.append(tgt_program_idces)
+#15
+tgt_program_tkn = ['DEF', 'run', 'm(', 'move', 'pickMarker', 'IFELSE', 'c(', 'TODO', 'c)', 'i(', 'turnLeft', 'turnLeft', 'turnLeft', 'turnLeft', 'i)', 'ELSE', 'e(', 'turnRight', 'e)', 'move', 'pickMarker', 'm)']
+tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
+pred_list.append(tgt_program_idces)
+#23
+tgt_program_tkn = ['DEF', 'run', 'm(', 'WHILE', 'c(', 'TODO', 'c)', 'w(', 'move', 'putMarker', 'w)', 'turnRight', 'm)']
+tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
+pred_list.append(tgt_program_idces)
+#24
+tgt_program_tkn = ['DEF', 'run', 'm(', 'putMarker', 'move', 'turnLeft', 'IF', 'c(', 'TODO', 'c)', 'i(', 'putMarker', 'i)', 'm)']
+tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
+pred_list.append(tgt_program_idces)
+#29
+tgt_program_tkn = ['DEF', 'run', 'm(', 'pickMarker', 'turnLeft', 'move', 'pickMarker', 'IF', 'c(', 'TODO', 'c)', 'i(', 'turnLeft', 'i)', 'm)']
+tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
+pred_list.append(tgt_program_idces)
+#30
+tgt_program_tkn = ['DEF', 'run', 'm(', 'move', 'pickMarker', 'WHILE', 'c(', 'TODO', 'c)', 'w(', 'move', 'w)', 'm)']
+tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
+pred_list.append(tgt_program_idces)
+#32
+tgt_program_tkn = ['DEF', 'run', 'm(', 'putMarker', 'WHILE', 'c(', 'TODO', 'c)', 'w(', 'move', 'w)', 'putMarker', 'move', 'putMarker', 'm)']
+tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
+pred_list.append(tgt_program_idces)
+#39
+tgt_program_tkn = ['DEF', 'run', 'm(', 'move', 'IF', 'c(', 'TODO', 'c)', 'i(', 'move', 'i)', 'putMarker', 'IF', 'c(', 'TODO', 'c)', 'i(', 'move', 'putMarker', 'putMarker', 'i)', 'm)']
+tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
+pred_list.append(tgt_program_idces)
+#41
+tgt_program_tkn = ['DEF', 'run', 'm(', 'pickMarker', 'move', 'IF', 'c(', 'TODO', 'c)', 'i(', 'turnRight', 'move', 'i)', 'm)']
+tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
+pred_list.append(tgt_program_idces)
+#49
+tgt_program_tkn = ['DEF', 'run', 'm(', 'pickMarker', 'turnLeft', 'move', 'pickMarker', 'move', 'IF', 'c(', 'TODO', 'c)', 'i(', 'pickMarker', 'i)', 'move', 'm)']
+tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
+pred_list.append(tgt_program_idces)
+#54
+tgt_program_tkn = ['DEF', 'run', 'm(', 'move', 'putMarker', 'IF', 'c(', 'TODO', 'c)', 'i(', 'move', 'turnLeft', 'putMarker', 'turnLeft', 'move', 'i)', 'm)']
+tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
+pred_list.append(tgt_program_idces)
+#60
+tgt_program_tkn = ['DEF', 'run', 'm(', 'WHILE', 'c(', 'TODO', 'c)', 'w(', 'move', 'w)', 'pickMarker', 'm)']
+tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
+pred_list.append(tgt_program_idces)
+#62
+tgt_program_tkn = ['DEF', 'run', 'm(', 'turnLeft', 'putMarker', 'move', 'putMarker', 'move', 'putMarker', 'move', 'IF', 'c(', 'TODO', 'c)', 'i(', 'turnLeft', 'putMarker', 'move', 'putMarker', 'move', 'putMarker', 'move', 'i)', 'turnRight', 'm)']
+tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
+pred_list.append(tgt_program_idces)
+#63
+tgt_program_tkn = ['DEF', 'run', 'm(', 'putMarker', 'move', 'turnRight', 'putMarker', 'move', 'turnRight', 'putMarker', 'move', 'turnRight', 'putMarker', 'move', 'turnRight', 'putMarker', 'move', 'turnRight', 'move', 'move', 'turnRight', 'move', 'turnRight', 'IF', 'c(', 'TODO', 'c)', 'i(', 'move', 'i)', 'putMarker', 'm)']
+tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
+pred_list.append(tgt_program_idces)
+#66
+tgt_program_tkn = ['DEF', 'run', 'm(', 'pickMarker', 'move', 'putMarker', 'putMarker', 'IF', 'c(', 'TODO', 'c)', 'i(', 'pickMarker', 'i)', 'm)']
+tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
+pred_list.append(tgt_program_idces)
+#67
+tgt_program_tkn = ['DEF', 'run', 'm(', 'pickMarker', 'move', 'IF', 'c(', 'TODO', 'c)', 'i(', 'turnRight', 'move', 'i)', 'pickMarker', 'move', 'IF', 'c(', 'TODO', 'c)', 'i(', 'turnLeft', 'i)', 'putMarker', 'turnLeft', 'move', 'm)']
+tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
+pred_list.append(tgt_program_idces)
+#72
+tgt_program_tkn = ['DEF', 'run', 'm(', 'IF', 'c(', 'TODO', 'c)', 'i(', 'pickMarker', 'i)', 'putMarker', 'putMarker', 'move', 'turnRight', 'm)']
+tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
+pred_list.append(tgt_program_idces)
+#74
+tgt_program_tkn = ['DEF', 'run', 'm(', 'turnRight', 'move', 'putMarker', 'IF', 'c(', 'TODO', 'c)', 'i(', 'turnRight', 'i)', 'move', 'putMarker', 'IF', 'c(', 'TODO', 'c)', 'i(', 'turnRight', 'i)', 'move', 'putMarker', 'IF', 'c(', 'TODO', 'c)', 'i(', 'turnRight', 'i)', 'move', 'putMarker', 'm)']
+tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
+pred_list.append(tgt_program_idces)
+#87
+tgt_program_tkn = ['DEF', 'run', 'm(', 'turnLeft', 'move', 'pickMarker', 'IF', 'c(', 'TODO', 'c)', 'i(', 'turnRight', 'pickMarker', 'i)', 'move', 'm)']
+tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
+pred_list.append(tgt_program_idces)
+#90
+tgt_program_tkn = ['DEF', 'run', 'm(', 'IFELSE', 'c(', 'TODO', 'c)', 'i(', 'turnLeft', 'i)', 'ELSE', 'e(', 'turnRight', 'e)', 'putMarker', 'putMarker', 'turnLeft', 'move', 'm)']
+tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
+pred_list.append(tgt_program_idces)
+#94
+tgt_program_tkn = ['DEF', 'run', 'm(', 'pickMarker', 'move', 'putMarker', 'IF', 'c(', 'TODO', 'c)', 'i(', 'pickMarker', 'i)', 'putMarker', 'IF', 'c(', 'TODO', 'c)', 'i(', 'move', 'putMarker', 'i)', 'm)']
+tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
+pred_list.append(tgt_program_idces)
+#99
+tgt_program_tkn = ['DEF', 'run', 'm(', 'turnLeft', 'move', 'move', 'IFELSE', 'c(', 'TODO', 'c)', 'i(', 'turnRight', 'i)', 'ELSE', 'e(', 'turnLeft', 'e)', 'putMarker', 'm)']
+tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
+pred_list.append(tgt_program_idces)
+#101
+tgt_program_tkn = ['DEF', 'run', 'm(', 'pickMarker', 'pickMarker', 'turnLeft', 'move', 'move', 'WHILE', 'c(', 'TODO', 'c)', 'w(', 'turnLeft', 'w)', 'putMarker', 'm)']
+tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
+pred_list.append(tgt_program_idces)

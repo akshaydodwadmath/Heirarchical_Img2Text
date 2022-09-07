@@ -139,9 +139,10 @@ def load_input_file_orig(path_to_dataset, path_to_vocab):
     path_to_dataset: File containing the data
     path_to_vocab: File containing the vocabulary
     '''
-
+    tgt_tkn2idx = {
+        '<pad>': 0,
+    }
     next_id = 1
-
     with open(path_to_vocab, 'r') as vocab_file:
         for line in vocab_file.readlines():
             tgt_tkn2idx[line.strip()] = next_id
@@ -169,40 +170,36 @@ def load_input_file_orig(path_to_dataset, path_to_vocab):
 
                 tgt_program_idces = translate(tgt_program_tkn, tgt_tkn2idx)
                 current_ios = []
-                
-                rules = [(len(tgt_program_tkn) == 15), (tgt_program_tkn[3] in actions), \
-                (tgt_program_tkn[4] in actions) , (tgt_program_tkn[5] in commands), \
-                (tgt_program_tkn[-2] in actions), (tgt_program_tkn[-3] in actions)]
-                
-                if  all(rules):
-                    for example in sample_data['examples']:
-                        inp_grid_coord = []
-                        inp_grid_val = []
-                        inp_grid_str = example['inpgrid_tensor']
-                        for coord_str in inp_grid_str.split():
-                            idx, val = coord_str.split(':')
-                            inp_grid_coord.append(int(idx))
-                            assert(float(val)==1.0)
-                        inp_grid = torch.ShortTensor(inp_grid_coord)
 
-                        out_grid_coord = []
-                        out_grid_val = []
-                        out_grid_str = example['outgrid_tensor']
-                        for coord_str in out_grid_str.split():
-                            idx, val = coord_str.split(':')
-                            out_grid_coord.append(int(idx))
-                            assert(float(val)==1.0)
-                        out_grid = torch.ShortTensor(out_grid_coord)
+                for example in sample_data['examples']:
+                    inp_grid_coord = []
+                    inp_grid_val = []
+                    inp_grid_str = example['inpgrid_tensor']
+                    for coord_str in inp_grid_str.split():
+                        idx, val = coord_str.split(':')
+                        inp_grid_coord.append(int(idx))
+                        assert(float(val)==1.0)
+                    inp_grid = torch.ShortTensor(inp_grid_coord)
 
-                        current_ios.append((inp_grid, out_grid))
+                    out_grid_coord = []
+                    out_grid_val = []
+                    out_grid_str = example['outgrid_tensor']
+                    for coord_str in out_grid_str.split():
+                        idx, val = coord_str.split(':')
+                        out_grid_coord.append(int(idx))
+                        assert(float(val)==1.0)
+                    out_grid = torch.ShortTensor(out_grid_coord)
 
-                    srcs.append(current_ios)
-                    tgts.append(tgt_program_idces)
+                    current_ios.append((inp_grid, out_grid))
+
+                srcs.append(current_ios)
+                tgts.append(tgt_program_idces)
+
         dataset = {"sources": srcs,
                    "targets": tgts}
         torch.save(dataset, path_to_ds_cache)
 
-    return dataset, vocab    
+    return dataset, vocab
 
 #TODO: undestand this
 def shuffle_dataset(dataset, batch_size, randomize=True):
@@ -328,11 +325,11 @@ def get_minibatch(dataset, sp_idx, batch_size,
         inp_grids.append(sample_inp_grids)
         out_grids.append(sample_out_grids)
 
-
-        sample_inter_grids_1 = torch.stack(sample_inter_grids_1, 0)
-        sample_inter_grids_2 = torch.stack(sample_inter_grids_2, 0)
-        inter_grids_1.append(sample_inter_grids_1)
-        inter_grids_2.append(sample_inter_grids_2)
+        if (intermediate):
+            sample_inter_grids_1 = torch.stack(sample_inter_grids_1, 0)
+            sample_inter_grids_2 = torch.stack(sample_inter_grids_2, 0)
+            inter_grids_1.append(sample_inter_grids_1)
+            inter_grids_2.append(sample_inter_grids_2)
         
         inp_worlds.append(sample_inp_worlds)
         out_worlds.append(sample_out_worlds)
@@ -349,9 +346,9 @@ def get_minibatch(dataset, sp_idx, batch_size,
         out_test_worlds.append(sample_test_out_worlds)
     inp_grids = Variable(torch.stack(inp_grids, 0), volatile=volatile_vars)
     out_grids = Variable(torch.stack(out_grids, 0), volatile=volatile_vars)
-    
-    inter_grids_1 = Variable(torch.stack(inter_grids_1, 0), volatile=volatile_vars)
-    inter_grids_2 = Variable(torch.stack(inter_grids_2, 0), volatile=volatile_vars)
+    if (intermediate):
+        inter_grids_1 = Variable(torch.stack(inter_grids_1, 0), volatile=volatile_vars)
+        inter_grids_2 = Variable(torch.stack(inter_grids_2, 0), volatile=volatile_vars)
    
     lines = [
         [start_idx] + line for line in targets
